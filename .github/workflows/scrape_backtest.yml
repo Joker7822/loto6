@@ -1,5 +1,7 @@
 name: Loto6 Scrape and Backtest
 
+# Manual trigger request: 2026-05-01 Asia/Tokyo
+
 on:
   push:
     branches: [main]
