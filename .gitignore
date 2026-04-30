@@ -1,0 +1,29 @@
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+
+# Generated model / output files
+*.pth
+*.pt
+*.keras
+*.onnx
+*.zip
+*.pkl
+*.joblib
+*.log
+catboost_info/
+lightning_logs/
+
+# Generated outputs
+outputs/*.csv
+outputs/*.json
+outputs/*.png
+
+# Local scratch
+.DS_Store
+.env
+.env.*
