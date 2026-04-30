@@ -6,7 +6,7 @@ __pycache__/
 .venv/
 venv/
 
-# Generated model / output files
+# Generated model / large files
 *.pth
 *.pt
 *.keras
@@ -19,9 +19,13 @@ catboost_info/
 lightning_logs/
 
 # Generated outputs
-outputs/*.csv
-outputs/*.json
 outputs/*.png
+outputs/predictions.csv
+
+# Backtest outputs must be committed for resumable verification.
+!outputs/backtest_result.csv
+!outputs/backtest_summary.csv
+!outputs/backtest_progress.json
 
 # Local scratch
 .DS_Store
