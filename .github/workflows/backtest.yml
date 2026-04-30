@@ -1,0 +1,77 @@
+name: Loto6 Backtest
+
+on:
+  workflow_dispatch:
+    inputs:
+      csv_path:
+        description: 'Path to Loto6 CSV'
+        required: true
+        default: 'data/loto6.csv'
+      top_n:
+        description: 'Predictions per draw'
+        required: true
+        default: '5'
+      candidates:
+        description: 'Candidate combinations per draw'
+        required: true
+        default: '3000'
+      min_train_draws:
+        description: 'Minimum past draws before first target draw'
+        required: true
+        default: '1'
+      push_every:
+        description: 'Commit and push every N newly verified draws'
+        required: true
+        default: '100'
+      max_draws:
+        description: 'Optional debug limit. Empty means all remaining draws.'
+        required: false
+        default: ''
+
+permissions:
+  contents: write
+
+concurrency:
+  group: loto6-backtest-main
+  cancel-in-progress: false
+
+jobs:
+  backtest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run resumable no-leakage backtest
+        env:
+          GIT_COMMITTER_NAME: github-actions
+          GIT_COMMITTER_EMAIL: github-actions@github.com
+        run: |
+          CMD="python loto6.py backtest --csv '${{ inputs.csv_path }}' --min-train-draws '${{ inputs.min_train_draws }}' --top-n '${{ inputs.top_n }}' --candidates '${{ inputs.candidates }}' --resume --push-every '${{ inputs.push_every }}' --push-final"
+          if [ -n "${{ inputs.max_draws }}" ]; then
+            CMD="$CMD --max-draws '${{ inputs.max_draws }}'"
+          fi
+          echo "$CMD"
+          eval "$CMD"
+
+      - name: Upload backtest outputs
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: loto6-backtest-outputs
+          path: |
+            outputs/backtest_result.csv
+            outputs/backtest_summary.csv
+            outputs/backtest_progress.json
+          if-no-files-found: ignore
