@@ -1,7 +1,7 @@
 import pandas as pd
 import pytest
 
-from loto6 import Loto6Predictor, classify_loto6, normalize_numbers
+from loto6 import Loto6Predictor, classify_loto6, normalize_numbers, resumable_walk_forward_backtest
 
 
 def sample_df(rows=360):
@@ -50,3 +50,50 @@ def test_predictor_returns_valid_combinations():
         assert len(set(pred.numbers)) == 6
         assert min(pred.numbers) >= 1
         assert max(pred.numbers) <= 43
+
+
+def test_resumable_backtest_has_no_future_leakage(tmp_path):
+    df = sample_df(12)
+    result, summary = resumable_walk_forward_backtest(
+        df,
+        output_dir=tmp_path,
+        top_n=2,
+        candidate_count=120,
+        min_train_draws=1,
+        resume=False,
+        push_every=0,
+    )
+    assert summary["completed_draws"] == 11
+    assert result["draw_no"].min() == 2
+    assert result["draw_no"].max() == 12
+    assert (result["train_until_draw_no"] < result["draw_no"]).all()
+    assert (result["train_draws"] == result["draw_no"] - 1).all()
+
+
+def test_resumable_backtest_skips_completed_draws(tmp_path):
+    df = sample_df(12)
+    first, first_summary = resumable_walk_forward_backtest(
+        df,
+        output_dir=tmp_path,
+        top_n=2,
+        candidate_count=120,
+        min_train_draws=1,
+        resume=False,
+        push_every=0,
+        max_draws=5,
+    )
+    assert first_summary["completed_draws"] == 5
+    second, second_summary = resumable_walk_forward_backtest(
+        df,
+        output_dir=tmp_path,
+        top_n=2,
+        candidate_count=120,
+        min_train_draws=1,
+        resume=True,
+        push_every=0,
+    )
+    assert second_summary["completed_draws"] == 11
+    counts = second.groupby("draw_no")["rank"].nunique()
+    assert counts.min() == 2
+    assert counts.max() == 2
+    assert len(second) == 22
