@@ -113,6 +113,18 @@ jobs:
           echo "$CMD"
           eval "$CMD"
 
+      - name: Run third-prize no-leakage backtest
+        run: |
+          TOP_N="${{ inputs.top_n || '5' }}"
+          MIN_TRAIN_DRAWS="${{ inputs.min_train_draws || '1' }}"
+          MAX_DRAWS="${{ inputs.max_draws }}"
+          CMD="python third_prize_optimizer.py backtest --csv data/loto6.csv --min-train-draws ${MIN_TRAIN_DRAWS} -n ${TOP_N} --output-dir outputs"
+          if [ -n "${MAX_DRAWS}" ] && [ "${MAX_DRAWS}" != "all" ] && [ "${MAX_DRAWS}" != "ALL" ]; then
+            CMD="$CMD --max-draws '${MAX_DRAWS}'"
+          fi
+          echo "$CMD"
+          eval "$CMD"
+
       - name: Generate CSV-aware latest Loto6 predictions
         run: |
           TOP_N="${{ inputs.top_n || '5' }}"
@@ -125,13 +137,25 @@ jobs:
             --third-output outputs/latest_predictions_3rd_target.csv \
             --context-output outputs/csv_aware_prediction_context.json \
             --include-outputs
+          python third_prize_optimizer.py predict \
+            --repo-root . \
+            -n "${TOP_N}" \
+            --output outputs/latest_predictions_3rd_target.csv \
+            --context outputs/latest_predictions_3rd_target_context.json
 
-      - name: Commit latest predictions
+      - name: Commit latest predictions and third-prize backtest
         run: |
           set -e
-          git add outputs/latest_predictions.csv outputs/latest_predictions_3rd_target.csv outputs/csv_aware_prediction_context.json
+          git add \
+            outputs/latest_predictions.csv \
+            outputs/latest_predictions_3rd_target.csv \
+            outputs/latest_predictions_3rd_target_context.json \
+            outputs/csv_aware_prediction_context.json \
+            outputs/backtest_3rd_target_result.csv \
+            outputs/backtest_3rd_target_summary.csv \
+            outputs/backtest_3rd_target_progress.json
           if git diff --cached --quiet; then
-            echo "No latest prediction changes to commit."
+            echo "No latest prediction or third-prize backtest changes to commit."
             exit 0
           fi
           LATEST_DRAW=$(python - <<'PY'
@@ -140,7 +164,7 @@ jobs:
           print(int(df['draw_no'].max()))
           PY
           )
-          git commit -m "Update CSV-aware Loto6 predictions after draw ${LATEST_DRAW} [skip ci]"
+          git commit -m "Update third-prize Loto6 predictions after draw ${LATEST_DRAW} [skip ci]"
           for attempt in 1 2 3; do
             git fetch origin main || true
             git rebase origin/main || true
@@ -162,7 +186,11 @@ jobs:
             outputs/backtest_result.csv
             outputs/backtest_summary.csv
             outputs/backtest_progress.json
+            outputs/backtest_3rd_target_result.csv
+            outputs/backtest_3rd_target_summary.csv
+            outputs/backtest_3rd_target_progress.json
             outputs/latest_predictions.csv
             outputs/latest_predictions_3rd_target.csv
+            outputs/latest_predictions_3rd_target_context.json
             outputs/csv_aware_prediction_context.json
           if-no-files-found: ignore
