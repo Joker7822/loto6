@@ -1,0 +1,18 @@
+{
+  "mode": "walk_forward_no_future_leakage",
+  "total_source_draws": 104,
+  "min_train_draws": 1,
+  "completed_draws": 100,
+  "latest_completed_draw_no": 2095,
+  "tickets": 500,
+  "top_n": 5,
+  "cost_yen": 100000,
+  "reference_payout_yen": 5000,
+  "reference_profit_yen": -95000,
+  "reference_roi": 0.05,
+  "grade_counts": {
+    "はずれ": 495,
+    "5等": 5
+  },
+  "max_main_matches": 3
+}
