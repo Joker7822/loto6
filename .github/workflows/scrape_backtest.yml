@@ -113,51 +113,23 @@ jobs:
           echo "$CMD"
           eval "$CMD"
 
-      - name: Generate latest Loto6 predictions
+      - name: Generate CSV-aware latest Loto6 predictions
         run: |
           TOP_N="${{ inputs.top_n || '5' }}"
           CANDIDATES="${{ inputs.candidates || '3000' }}"
-          python loto6.py predict --csv data/loto6.csv -n "${TOP_N}" --candidates "${CANDIDATES}" --output outputs/latest_predictions.csv
-          python - <<'PY'
-          import json
-          from datetime import datetime, timezone
-          from pathlib import Path
-          import pandas as pd
-
-          csv_path = Path('data/loto6.csv')
-          pred_path = Path('outputs/latest_predictions.csv')
-          meta_path = Path('outputs/latest_predictions_context.json')
-
-          draws = pd.read_csv(csv_path).sort_values('draw_no')
-          preds = pd.read_csv(pred_path)
-          latest = draws.iloc[-1]
-
-          preds.insert(0, 'generated_at_utc', datetime.now(timezone.utc).isoformat())
-          preds.insert(1, 'source_draws', len(draws))
-          preds.insert(2, 'trained_through_draw_no', int(latest['draw_no']))
-          preds.insert(3, 'trained_through_date', str(latest['date']))
-          preds.insert(4, 'target', f"after_draw_{int(latest['draw_no'])}")
-          preds.to_csv(pred_path, index=False, encoding='utf-8')
-
-          meta = {
-              'generated_at_utc': datetime.now(timezone.utc).isoformat(),
-              'source_csv': str(csv_path),
-              'prediction_csv': str(pred_path),
-              'source_draws': int(len(draws)),
-              'trained_through_draw_no': int(latest['draw_no']),
-              'trained_through_date': str(latest['date']),
-              'target': f"after_draw_{int(latest['draw_no'])}",
-              'note': 'Predictions are generated only from the CSV available at execution time.'
-          }
-          meta_path.write_text(json.dumps(meta, ensure_ascii=False, indent=2), encoding='utf-8')
-          print(preds.to_string(index=False))
-          print(meta_path.read_text(encoding='utf-8'))
-          PY
+          python csv_aware_predict.py \
+            --repo-root . \
+            -n "${TOP_N}" \
+            --candidates "${CANDIDATES}" \
+            --standard-output outputs/latest_predictions.csv \
+            --third-output outputs/latest_predictions_3rd_target.csv \
+            --context-output outputs/csv_aware_prediction_context.json \
+            --include-outputs
 
       - name: Commit latest predictions
         run: |
           set -e
-          git add outputs/latest_predictions.csv outputs/latest_predictions_context.json
+          git add outputs/latest_predictions.csv outputs/latest_predictions_3rd_target.csv outputs/csv_aware_prediction_context.json
           if git diff --cached --quiet; then
             echo "No latest prediction changes to commit."
             exit 0
@@ -168,7 +140,7 @@ jobs:
           print(int(df['draw_no'].max()))
           PY
           )
-          git commit -m "Update latest Loto6 predictions after draw ${LATEST_DRAW} [skip ci]"
+          git commit -m "Update CSV-aware Loto6 predictions after draw ${LATEST_DRAW} [skip ci]"
           for attempt in 1 2 3; do
             git fetch origin main || true
             git rebase origin/main || true
@@ -191,5 +163,6 @@ jobs:
             outputs/backtest_summary.csv
             outputs/backtest_progress.json
             outputs/latest_predictions.csv
-            outputs/latest_predictions_context.json
+            outputs/latest_predictions_3rd_target.csv
+            outputs/csv_aware_prediction_context.json
           if-no-files-found: ignore
