@@ -1,5 +1,5 @@
 {
-  "generated_at_utc": "2026-05-01T08:15:15.578373+00:00",
+  "generated_at_utc": "2026-05-01T16:58:41.756729+00:00",
   "mode": "csv_aware_prediction",
   "standard_output": "outputs/latest_predictions.csv",
   "third_prize_output": "outputs/latest_predictions_3rd_target.csv",
@@ -13,7 +13,7 @@
   "source_csv_file_count": 5,
   "actual_draws": 2098,
   "number_bonus_count": 43,
-  "pair_bonus_count": 802,
+  "pair_bonus_count": 787,
   "prior_prediction_bonus_count": 11,
   "duplicate_summary": {
     "duplicate_actual_draw_rows_skipped": 0,
@@ -64,7 +64,7 @@
         "backtest_performance"
       ],
       "duplicates_skipped": {},
-      "performance_rows": 1962
+      "performance_rows": 1963
     },
     {
       "path": "outputs/backtest_summary.csv",
