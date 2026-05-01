@@ -1,0 +1,19 @@
+{
+  "generated_at_utc": "2026-05-01T20:25:58.804068+00:00",
+  "mode": "third_prize_core_diversified_A2_B2_C1",
+  "output": "outputs/latest_predictions_3rd_target.csv",
+  "source_draws": 2098,
+  "source_csv_files": [
+    "data/loto6.csv",
+    "outputs/backtest_3rd_target_result.csv",
+    "outputs/backtest_3rd_target_summary.csv",
+    "outputs/backtest_result.csv",
+    "outputs/backtest_summary.csv",
+    "outputs/latest_predictions.csv",
+    "outputs/latest_predictions_3rd_target.csv"
+  ],
+  "trained_through_draw_no": 2098,
+  "trained_through_date": "2026-04-30",
+  "core_allocation": "A:2, B:2, C:1",
+  "note": "3rd-prize-oriented output. It prioritizes diversified 5-number cores and does not guarantee winning."
+}

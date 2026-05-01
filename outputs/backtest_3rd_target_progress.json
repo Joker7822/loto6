@@ -1,0 +1,18 @@
+{
+  "mode": "third_prize_core_diversified_A2_B2_C1",
+  "total_source_draws": 2098,
+  "min_train_draws": 1,
+  "completed_draws": 2097,
+  "tickets": 10485,
+  "top_n": 5,
+  "max_main_matches": 4,
+  "max_core5_matches": 4,
+  "core5_5hit_count": 0,
+  "core5_4plus_count": 4,
+  "third_or_better_count": 0,
+  "grade_counts": {
+    "はずれ": 10263,
+    "5等": 204,
+    "4等": 18
+  }
+}
