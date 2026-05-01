@@ -1,12 +1,10 @@
 name: Loto6 Scrape and Backtest
 
-# Manual trigger request: 2026-05-01 Asia/Tokyo
+# Trigger broadened: 2026-05-01 Asia/Tokyo
 
 on:
   push:
     branches: [main]
-    paths:
-      - '.github/workflows/scrape_backtest.yml'
   workflow_dispatch:
     inputs:
       top_n:
