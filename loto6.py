@@ -29,13 +29,36 @@ PICK_SIZE = 6
 NUMBER_COLUMNS = [f"n{i}" for i in range(1, 7)]
 DRAW_COLUMNS = ["draw_no", "date", *NUMBER_COLUMNS, "bonus"]
 TICKET_PRICE_YEN = 200
+
 CURRENT_URL = "https://www.mizuhobank.co.jp/takarakuji/check/loto/loto6/index.html"
 DETAIL_URL = "https://www.mizuhobank.co.jp/takarakuji/check/loto/backnumber/detail.html?fromto={start}_{end}&type=loto6"
 OLD_URL = "https://www.mizuhobank.co.jp/takarakuji/check/loto/backnumber/loto6{start:04d}.html"
-REFERENCE_PAYOUT_YEN = {"1等": 200_000_000, "2等": 10_000_000, "3等": 300_000, "4等": 6_800, "5等": 1_000, "はずれ": 0}
+
+REFERENCE_PAYOUT_YEN = {
+    "1等": 200_000_000,
+    "2等": 10_000_000,
+    "3等": 300_000,
+    "4等": 6_800,
+    "5等": 1_000,
+    "はずれ": 0,
+}
 DRAW_RE = re.compile(r"第?\s*(\d+)\s*回")
 DATE_RE = re.compile(r"(\d{4})年\s*(\d{1,2})月\s*(\d{1,2})日")
 NUM_RE = re.compile(r"\d{1,2}")
+ROW_RE = re.compile(
+    r"第\s*(?P<draw>\d{1,5})\s*回\s+"
+    r"(?P<year>\d{4})年\s*(?P<month>\d{1,2})月\s*(?P<day>\d{1,2})日\s+"
+    r"(?P<num1>\d{1,2})\s+(?P<num2>\d{1,2})\s+(?P<num3>\d{1,2})\s+"
+    r"(?P<num4>\d{1,2})\s+(?P<num5>\d{1,2})\s+(?P<num6>\d{1,2})\s+"
+    r"(?P<bonus>\d{1,2})"
+)
+MOBILE_ROW_RE = re.compile(
+    r"第\s*(?P<draw>\d{1,5})\s*回.*?"
+    r"(?P<year>\d{4})年\s*(?P<month>\d{1,2})月\s*(?P<day>\d{1,2})日.*?"
+    r"本数字\s*(?P<main>(?:\d{1,2}\s*){6}).*?"
+    r"ボーナス数字\s*(?P<bonus>\d{1,2})",
+    re.DOTALL,
+)
 
 
 @dataclass(frozen=True)
@@ -94,6 +117,9 @@ def classify_loto6(prediction: Sequence[int], main_numbers: Sequence[int], bonus
 
 
 def normalize_draw_dataframe(df: pd.DataFrame) -> pd.DataFrame:
+    if df.empty:
+        return pd.DataFrame(columns=DRAW_COLUMNS)
+
     work = df.copy()
     work.columns = [str(c).strip() for c in work.columns]
     aliases = {
@@ -110,9 +136,11 @@ def normalize_draw_dataframe(df: pd.DataFrame) -> pd.DataFrame:
         for c in (f"num{i}", f"number{i}", f"本数字{i}", f"数字{i}"):
             if c in work.columns:
                 work = work.rename(columns={c: f"n{i}"})
+
     missing = [c for c in DRAW_COLUMNS if c not in work.columns]
     if missing:
         raise ValueError(f"Missing required columns: {missing}; actual={list(work.columns)}")
+
     work = work[DRAW_COLUMNS].copy()
     work["draw_no"] = work["draw_no"].astype(str).str.extract(r"(\d+)").astype(int)
     work["date"] = pd.to_datetime(work["date"], errors="coerce")
@@ -121,6 +149,7 @@ def normalize_draw_dataframe(df: pd.DataFrame) -> pd.DataFrame:
     work = work.dropna(subset=["date", *NUMBER_COLUMNS, "bonus"]).copy()
     for c in NUMBER_COLUMNS + ["bonus"]:
         work[c] = work[c].astype(int)
+
     sorted_rows = [normalize_numbers(row) for row in work[NUMBER_COLUMNS].itertuples(index=False, name=None)]
     for i, c in enumerate(NUMBER_COLUMNS):
         work[c] = [row[i] for row in sorted_rows]
@@ -146,17 +175,23 @@ def number_scores(df: pd.DataFrame, recent_window: int = 80) -> dict[int, float]
     draws = normalize_draw_dataframe(df)
     recent = draws.tail(min(recent_window, len(draws)))
     prior = draws.iloc[: max(0, len(draws) - len(recent))]
+
     all_cnt = Counter(int(v) for v in draws[NUMBER_COLUMNS].to_numpy().ravel())
     recent_cnt = Counter(int(v) for v in recent[NUMBER_COLUMNS].to_numpy().ravel())
     prior_cnt = Counter(int(v) for v in prior[NUMBER_COLUMNS].to_numpy().ravel()) if not prior.empty else Counter()
+
     gap = {n: len(draws) + 1 for n in range(MIN_NUMBER, MAX_NUMBER + 1)}
     for offset, row in enumerate(draws[NUMBER_COLUMNS].itertuples(index=False, name=None), start=1):
         for n in row:
             gap[int(n)] = len(draws) - offset
+
     f = _scale({n: all_cnt[n] for n in range(MIN_NUMBER, MAX_NUMBER + 1)})
     r = _scale({n: recent_cnt[n] for n in range(MIN_NUMBER, MAX_NUMBER + 1)})
     g = _scale(gap)
-    t = _scale({n: recent_cnt[n] / max(1, len(recent)) - prior_cnt[n] / max(1, len(prior)) for n in range(MIN_NUMBER, MAX_NUMBER + 1)})
+    t = _scale({
+        n: recent_cnt[n] / max(1, len(recent)) - prior_cnt[n] / max(1, len(prior))
+        for n in range(MIN_NUMBER, MAX_NUMBER + 1)
+    })
     return {n: 0.35 * f[n] + 0.35 * r[n] + 0.20 * g[n] + 0.10 * t[n] for n in range(MIN_NUMBER, MAX_NUMBER + 1)}
 
 
@@ -214,11 +249,13 @@ class Loto6Predictor:
         numbers = list(range(MIN_NUMBER, MAX_NUMBER + 1))
         weights = [self.scores.get(x, 0.0) + 0.05 for x in numbers]
         candidates: set[tuple[int, ...]] = set()
+
         top_pool = sorted(numbers, key=lambda x: self.scores.get(x, 0.0), reverse=True)[:18]
         for combo in combinations(top_pool, PICK_SIZE):
             candidates.add(normalize_numbers(combo))
             if len(candidates) >= max(1, candidate_count // 3):
                 break
+
         while len(candidates) < candidate_count:
             available = numbers[:]
             available_weights = weights[:]
@@ -236,6 +273,7 @@ class Loto6Predictor:
                 pick.append(available.pop(idx))
                 available_weights.pop(idx)
             candidates.add(normalize_numbers(pick))
+
         ranked = sorted(((self._combo_score(c), c) for c in candidates), reverse=True)
         return [Prediction(i + 1, combo, float(score)) for i, (score, combo) in enumerate(ranked[:n])]
 
@@ -247,61 +285,175 @@ def predictions_to_dataframe(predictions: Iterable[Prediction]) -> pd.DataFrame:
     ])
 
 
+def _valid_draw_numbers(nums: Sequence[int]) -> bool:
+    return len(nums) == 7 and all(MIN_NUMBER <= int(n) <= MAX_NUMBER for n in nums[:6]) and MIN_NUMBER <= int(nums[6]) <= MAX_NUMBER
+
+
+def _row_dict(draw_no: int, year: int, month: int, day: int, nums: Sequence[int]) -> dict | None:
+    nums = [int(n) for n in nums]
+    if not _valid_draw_numbers(nums):
+        return None
+    try:
+        main = normalize_numbers(nums[:6])
+    except ValueError:
+        return None
+    bonus = int(nums[6])
+    return {
+        "draw_no": int(draw_no),
+        "date": f"{int(year):04d}-{int(month):02d}-{int(day):02d}",
+        **{f"n{i}": main[i - 1] for i in range(1, 7)},
+        "bonus": bonus,
+    }
+
+
 def parse_loto6_html(html: str) -> list[dict]:
+    """Parse old/current Mizuho Loto6 pages.
+
+    The old backnumber pages are static tables such as loto60001.html.
+    The current page and mobile fragments can use different row structures, so this parser
+    first reads real table rows, then falls back to whole-page regex parsing.
+    """
     soup = BeautifulSoup(html, "lxml")
-    rows = []
+    rows: list[dict] = []
+    seen: set[int] = set()
+
+    # 1) Table-row parser. This avoids mixing draw/date numbers into the seven result numbers.
     for tr in soup.find_all("tr"):
         cells = [c.get_text(" ", strip=True) for c in tr.find_all(["th", "td"])]
-        text = " ".join(cells)
-        draw = DRAW_RE.search(text)
-        date = DATE_RE.search(text)
-        nums = [int(x) for x in NUM_RE.findall(text) if MIN_NUMBER <= int(x) <= MAX_NUMBER]
-        if not draw or not date or len(nums) < 7:
+        if not cells:
             continue
-        y, m, d = map(int, date.groups())
-        seven = nums[-7:]
-        rows.append({"draw_no": int(draw.group(1)), "date": f"{y:04d}-{m:02d}-{d:02d}", **{f"n{i}": seven[i - 1] for i in range(1, 7)}, "bonus": seven[6]})
-    return normalize_draw_dataframe(pd.DataFrame(rows)).to_dict("records") if rows else []
+        joined = " ".join(cells)
+        draw = DRAW_RE.search(joined)
+        date = DATE_RE.search(joined)
+        if not draw or not date:
+            continue
+
+        numeric_cells: list[int] = []
+        for cell in cells:
+            if DRAW_RE.search(cell) or DATE_RE.search(cell):
+                continue
+            for token in NUM_RE.findall(cell):
+                value = int(token)
+                if MIN_NUMBER <= value <= MAX_NUMBER:
+                    numeric_cells.append(value)
+
+        if len(numeric_cells) >= 7:
+            y, m, d = map(int, date.groups())
+            row = _row_dict(int(draw.group(1)), y, m, d, numeric_cells[:7])
+            if row and row["draw_no"] not in seen:
+                rows.append(row)
+                seen.add(row["draw_no"])
+
+    text = soup.get_text("\n", strip=True)
+    text = re.sub(r"\s+", " ", text)
+
+    # 2) Desktop table text fallback.
+    for match in ROW_RE.finditer(text):
+        nums = [int(match.group(f"num{i}")) for i in range(1, 7)] + [int(match.group("bonus"))]
+        row = _row_dict(
+            int(match.group("draw")),
+            int(match.group("year")),
+            int(match.group("month")),
+            int(match.group("day")),
+            nums,
+        )
+        if row and row["draw_no"] not in seen:
+            rows.append(row)
+            seen.add(row["draw_no"])
+
+    # 3) Mobile/definition-list style fallback.
+    for match in MOBILE_ROW_RE.finditer(text):
+        nums = [int(x) for x in NUM_RE.findall(match.group("main"))][:6] + [int(match.group("bonus"))]
+        row = _row_dict(
+            int(match.group("draw")),
+            int(match.group("year")),
+            int(match.group("month")),
+            int(match.group("day")),
+            nums,
+        )
+        if row and row["draw_no"] not in seen:
+            rows.append(row)
+            seen.add(row["draw_no"])
+
+    if not rows:
+        return []
+    return normalize_draw_dataframe(pd.DataFrame(rows)).to_dict("records")
 
 
-def fetch_page(url: str) -> list[dict]:
-    res = requests.get(url, headers={"User-Agent": "Mozilla/5.0 loto6-scraper/1.0", "Accept-Language": "ja,en;q=0.8"}, timeout=20)
-    res.raise_for_status()
-    res.encoding = res.apparent_encoding or res.encoding
-    return parse_loto6_html(res.text)
+def fetch_page(url: str, retries: int = 2, sleep_seconds: float = 0.8) -> list[dict]:
+    headers = {
+        "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Accept-Language": "ja,en;q=0.8",
+        "Cache-Control": "no-cache",
+        "Referer": "https://www.mizuhobank.co.jp/takarakuji/check/loto/loto6/index.html",
+    }
+    last_error: Exception | None = None
+    for attempt in range(1, retries + 2):
+        try:
+            res = requests.get(url, headers=headers, timeout=30)
+            res.raise_for_status()
+            res.encoding = res.apparent_encoding or res.encoding
+            rows = parse_loto6_html(res.text)
+            if rows:
+                return rows
+            raise RuntimeError(f"parsed 0 rows from {url}; status={res.status_code}; bytes={len(res.text)}")
+        except Exception as exc:
+            last_error = exc
+            if attempt <= retries:
+                time.sleep(sleep_seconds * attempt)
+    raise RuntimeError(str(last_error))
 
 
 def update_csv(path: str = "data/loto6.csv", max_draw: int = 9999, block_size: int = 20, sleep_seconds: float = 0.6, max_empty_blocks: int = 8) -> pd.DataFrame:
     rows: list[dict] = []
     empty = 0
+    failures: list[str] = []
+
     for start in range(1, max_draw + 1, block_size):
-        block = []
-        for url in (DETAIL_URL.format(start=start, end=start + block_size - 1), OLD_URL.format(start=start)):
+        block: list[dict] = []
+        urls = [
+            OLD_URL.format(start=start),
+            DETAIL_URL.format(start=start, end=start + block_size - 1),
+        ]
+        for url in urls:
             try:
                 block = fetch_page(url)
-            except Exception:
+            except Exception as exc:
+                failures.append(f"{url} -> {exc}")
                 block = []
             if block:
+                print(f"scraped start={start} rows={len(block)} url={url}")
                 break
             time.sleep(sleep_seconds)
+
         if block:
             empty = 0
             rows.extend(block)
         else:
             empty += 1
+            print(f"empty block start={start} empty_count={empty}")
             if empty >= max_empty_blocks:
                 break
         time.sleep(sleep_seconds)
+
     try:
-        rows.extend(fetch_page(CURRENT_URL))
-    except Exception:
-        pass
+        current_rows = fetch_page(CURRENT_URL)
+        if current_rows:
+            print(f"scraped current rows={len(current_rows)}")
+            rows.extend(current_rows)
+    except Exception as exc:
+        failures.append(f"{CURRENT_URL} -> {exc}")
+
     if not rows:
-        raise RuntimeError("No Loto6 rows scraped. Check page structure or network access.")
+        diagnostic = "\n".join(failures[-20:]) if failures else "no fetch attempts recorded"
+        raise RuntimeError(f"No Loto6 rows scraped. Last failures:\n{diagnostic}")
+
     df = normalize_draw_dataframe(pd.DataFrame(rows))
     out = Path(path)
     out.parent.mkdir(parents=True, exist_ok=True)
     df.to_csv(out, index=False, encoding="utf-8")
+    print(f"wrote {out} rows={len(df)} first_draw={int(df['draw_no'].min())} latest_draw={int(df['draw_no'].max())}")
     return df
 
 
@@ -407,6 +559,7 @@ def resumable_walk_forward_backtest(
     draws = normalize_draw_dataframe(df)
     if len(draws) <= min_train_draws:
         raise ValueError(f"Need more than min_train_draws={min_train_draws} rows; got {len(draws)}")
+
     output_path = Path(output_dir)
     result_path = output_path / "backtest_result.csv"
     tracked_paths = [result_path, output_path / "backtest_summary.csv", output_path / "backtest_progress.json"]
@@ -422,14 +575,16 @@ def resumable_walk_forward_backtest(
         draw_no = int(actual["draw_no"])
         if draw_no in completed:
             continue
+
         train_df = draws.iloc[:idx].copy()
-        # Anti-leakage guard: the target draw must not be inside the training set.
         if draw_no in set(train_df["draw_no"].astype(int)):
             raise RuntimeError(f"Future leakage guard failed for draw_no={draw_no}")
+
         predictions = Loto6Predictor(seed=seed + draw_no).fit(train_df).predict(top_n, candidate_count)
         main = [int(actual[c]) for c in NUMBER_COLUMNS]
         bonus = int(actual["bonus"])
         records = []
+
         for pred in predictions:
             match = classify_loto6(pred.numbers, main, bonus)
             records.append({
@@ -448,6 +603,7 @@ def resumable_walk_forward_backtest(
                 "train_until_draw_no": int(train_df["draw_no"].max()),
                 "reference_payout_yen": REFERENCE_PAYOUT_YEN[match.grade],
             })
+
         result_df = pd.concat([result_df, pd.DataFrame(records)], ignore_index=True)
         completed.add(draw_no)
         new_since_push += 1
@@ -455,6 +611,7 @@ def resumable_walk_forward_backtest(
         summary = _summarize_result(result_df, len(draws), top_n, min_train_draws, latest)
         _write_outputs(result_df, summary, output_path)
         print(f"verified draw={draw_no} train_draws={len(train_df)} completed={summary['completed_draws']} max_match={summary['max_main_matches']}")
+
         if push_every > 0 and new_since_push >= push_every:
             git_commit_and_push(tracked_paths, f"Backtest progress up to draw {draw_no} [skip ci]")
             new_since_push = 0
@@ -471,7 +628,16 @@ def resumable_walk_forward_backtest(
 def walk_forward_backtest(df: pd.DataFrame, start_after: int = 300, top_n: int = 5, candidate_count: int = 3000, seed: int = 42) -> tuple[pd.DataFrame, dict]:
     """Compatibility wrapper. Prefer resumable_walk_forward_backtest()."""
     tmp_dir = Path("outputs")
-    return resumable_walk_forward_backtest(df, output_dir=tmp_dir, top_n=top_n, candidate_count=candidate_count, seed=seed, min_train_draws=start_after, resume=False, push_every=0)
+    return resumable_walk_forward_backtest(
+        df,
+        output_dir=tmp_dir,
+        top_n=top_n,
+        candidate_count=candidate_count,
+        seed=seed,
+        min_train_draws=start_after,
+        resume=False,
+        push_every=0,
+    )
 
 
 def main() -> None:
