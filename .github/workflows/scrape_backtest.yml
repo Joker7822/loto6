@@ -28,7 +28,7 @@ on:
         required: true
         default: '12'
       max_draws:
-        description: 'Optional debug limit. Empty means all remaining draws.'
+        description: 'Optional debug limit. Empty/all means all remaining draws.'
         required: false
         default: ''
 
@@ -100,9 +100,10 @@ jobs:
           CANDIDATES="${{ inputs.candidates || '3000' }}"
           MIN_TRAIN_DRAWS="${{ inputs.min_train_draws || '1' }}"
           PUSH_EVERY="${{ inputs.push_every || '100' }}"
+          MAX_DRAWS="${{ inputs.max_draws }}"
           CMD="python loto6.py backtest --csv data/loto6.csv --min-train-draws ${MIN_TRAIN_DRAWS} --top-n ${TOP_N} --candidates ${CANDIDATES} --resume --push-every ${PUSH_EVERY} --push-final"
-          if [ -n "${{ inputs.max_draws }}" ]; then
-            CMD="$CMD --max-draws '${{ inputs.max_draws }}'"
+          if [ -n "${MAX_DRAWS}" ] && [ "${MAX_DRAWS}" != "all" ] && [ "${MAX_DRAWS}" != "ALL" ]; then
+            CMD="$CMD --max-draws '${MAX_DRAWS}'"
           fi
           echo "$CMD"
           eval "$CMD"
