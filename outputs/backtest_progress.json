@@ -2,18 +2,18 @@
   "mode": "walk_forward_no_future_leakage",
   "total_source_draws": 2098,
   "min_train_draws": 1,
-  "completed_draws": 900,
-  "latest_completed_draw_no": 901,
-  "tickets": 4500,
+  "completed_draws": 1000,
+  "latest_completed_draw_no": 1001,
+  "tickets": 5000,
   "top_n": 5,
-  "cost_yen": 900000,
-  "reference_payout_yen": 167800,
-  "reference_profit_yen": -732200,
-  "reference_roi": 0.186444,
+  "cost_yen": 1000000,
+  "reference_payout_yen": 183600,
+  "reference_profit_yen": -816400,
+  "reference_roi": 0.1836,
   "grade_counts": {
-    "はずれ": 4367,
-    "5等": 127,
-    "4等": 6
+    "はずれ": 4857,
+    "5等": 136,
+    "4等": 7
   },
   "max_main_matches": 4
 }
