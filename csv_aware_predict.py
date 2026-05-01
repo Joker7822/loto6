@@ -4,6 +4,11 @@ csv_aware_predict.py
 
 リポジトリ内のすべての .csv ファイルを次回予測に活用します。
 
+重複スキップ方針:
+  - 実抽せんデータは draw_no 単位で1件に統合
+  - backtest_result 系は draw_no + rank + prediction + actual で重複行をスキップ
+  - latest_predictions 系は numbers 単位で重複予測をスキップ
+
 利用するCSVの種類:
   1. 実抽せんデータCSV
      - draw_no,date,n1,n2,n3,n4,n5,n6,bonus
@@ -24,17 +29,17 @@ import argparse
 import json
 import math
 import re
-from collections import Counter, defaultdict
+from collections import Counter
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from itertools import combinations
 from pathlib import Path
-from typing import Iterable, Sequence
+from typing import Sequence
 
 import numpy as np
 import pandas as pd
 
-from loto6 import NUMBER_COLUMNS, classify_loto6, format_numbers, normalize_draw_dataframe, normalize_numbers
+from loto6 import NUMBER_COLUMNS, format_numbers, normalize_draw_dataframe, normalize_numbers
 
 CSV_DRAW_COLUMNS = ["draw_no", "date", "n1", "n2", "n3", "n4", "n5", "n6", "bonus"]
 GRADE_WEIGHT = {"1等": 12.0, "2等": 9.0, "3等": 7.0, "4等": 3.0, "5等": 1.0, "はずれ": 0.0}
@@ -48,6 +53,7 @@ class CsvFeatureSet:
     prediction_pair_bonus: dict[tuple[int, int], float]
     prior_prediction_bonus: dict[int, float]
     file_summaries: list[dict]
+    duplicate_summary: dict[str, int]
 
 
 def _parse_numbers_text(value: object, expected_min: int = 6) -> list[int]:
@@ -57,7 +63,6 @@ def _parse_numbers_text(value: object, expected_min: int = 6) -> list[int]:
     nums = [n for n in nums if 1 <= n <= 43]
     if len(nums) < expected_min:
         return []
-    # 予測文字列に余分な数字が混ざる場合は先頭6個を使う。
     return nums[:expected_min]
 
 
@@ -129,6 +134,24 @@ def _iter_repo_csvs(root: Path, include_outputs: bool = True) -> list[Path]:
     return sorted(csvs)
 
 
+def _actual_draw_key(row: pd.Series) -> int | None:
+    try:
+        return int(row["draw_no"])
+    except Exception:
+        return None
+
+
+def _prediction_key(nums: Sequence[int]) -> tuple[int, ...]:
+    return tuple(normalize_numbers(nums[:6]))
+
+
+def _performance_key(row: pd.Series, nums: Sequence[int]) -> tuple:
+    draw_no = str(row.get("draw_no", ""))
+    rank = str(row.get("rank", ""))
+    actual = str(row.get("actual", ""))
+    return (draw_no, rank, _prediction_key(nums), actual)
+
+
 def load_csv_features(root: str | Path = ".", include_outputs: bool = True) -> CsvFeatureSet:
     root_path = Path(root)
     csv_paths = _iter_repo_csvs(root_path, include_outputs=include_outputs)
@@ -138,23 +161,53 @@ def load_csv_features(root: str | Path = ".", include_outputs: bool = True) -> C
     prior_prediction_weight: Counter[int] = Counter()
     file_summaries: list[dict] = []
 
+    seen_actual_draws: set[int] = set()
+    seen_performance_rows: set[tuple] = set()
+    seen_prior_predictions: set[tuple[int, ...]] = set()
+    duplicate_summary = {
+        "duplicate_actual_draw_rows_skipped": 0,
+        "duplicate_performance_rows_skipped": 0,
+        "duplicate_prior_prediction_rows_skipped": 0,
+    }
+
     for path in csv_paths:
         df = _read_csv_safely(path)
         if df is None:
             file_summaries.append({"path": str(path), "status": "read_failed"})
             continue
 
-        summary = {"path": str(path), "rows": int(len(df)), "columns": list(map(str, df.columns)), "used_as": []}
+        summary = {
+            "path": str(path),
+            "rows": int(len(df)),
+            "columns": list(map(str, df.columns)),
+            "used_as": [],
+            "duplicates_skipped": {},
+        }
 
         actual = _extract_actual_draws(df)
         if not actual.empty:
-            actual_frames.append(actual)
-            summary["used_as"].append("actual_draws")
-            summary["actual_draw_rows"] = int(len(actual))
+            unique_rows = []
+            skipped = 0
+            for _, row in actual.iterrows():
+                key = _actual_draw_key(row)
+                if key is None:
+                    continue
+                if key in seen_actual_draws:
+                    skipped += 1
+                    continue
+                seen_actual_draws.add(key)
+                unique_rows.append(row.to_dict())
+            if unique_rows:
+                actual_frames.append(pd.DataFrame(unique_rows))
+                summary["used_as"].append("actual_draws")
+                summary["actual_draw_rows"] = int(len(unique_rows))
+            if skipped:
+                duplicate_summary["duplicate_actual_draw_rows_skipped"] += skipped
+                summary["duplicates_skipped"]["actual_draws"] = skipped
 
-        # backtest_result.csv 等: 過去予測の一致数・等級から、番号とペアに軽い補正を与える。
         if "prediction" in df.columns and ("main_matches" in df.columns or "grade" in df.columns):
             used_rows = 0
+            skipped = 0
             for _, row in df.iterrows():
                 nums = _parse_numbers_text(row.get("prediction"), expected_min=6)
                 if len(nums) < 6:
@@ -163,6 +216,12 @@ def load_csv_features(root: str | Path = ".", include_outputs: bool = True) -> C
                     nums = list(normalize_numbers(nums[:6]))
                 except Exception:
                     continue
+                key = _performance_key(row, nums)
+                if key in seen_performance_rows:
+                    skipped += 1
+                    continue
+                seen_performance_rows.add(key)
+
                 grade = str(row.get("grade", ""))
                 try:
                     matches = int(row.get("main_matches", 0))
@@ -179,24 +238,34 @@ def load_csv_features(root: str | Path = ".", include_outputs: bool = True) -> C
             if used_rows:
                 summary["used_as"].append("backtest_performance")
                 summary["performance_rows"] = used_rows
+            if skipped:
+                duplicate_summary["duplicate_performance_rows_skipped"] += skipped
+                summary["duplicates_skipped"]["backtest_performance"] = skipped
 
-        # latest_predictions.csv 等: 直近モデルの合意情報として軽く使う。
         if "numbers" in df.columns:
             used_rows = 0
+            skipped = 0
             for _, row in df.iterrows():
                 nums = _parse_numbers_text(row.get("numbers"), expected_min=6)
                 if len(nums) < 6:
                     continue
                 try:
-                    nums = list(normalize_numbers(nums[:6]))
+                    nums_key = _prediction_key(nums[:6])
                 except Exception:
                     continue
+                if nums_key in seen_prior_predictions:
+                    skipped += 1
+                    continue
+                seen_prior_predictions.add(nums_key)
                 used_rows += 1
-                for n in nums:
+                for n in nums_key:
                     prior_prediction_weight[n] += 1.0
             if used_rows:
                 summary["used_as"].append("prior_predictions")
                 summary["prior_prediction_rows"] = used_rows
+            if skipped:
+                duplicate_summary["duplicate_prior_prediction_rows_skipped"] += skipped
+                summary["duplicates_skipped"]["prior_predictions"] = skipped
 
         file_summaries.append(summary)
 
@@ -220,6 +289,7 @@ def load_csv_features(root: str | Path = ".", include_outputs: bool = True) -> C
         prediction_pair_bonus=normalize_counter(prediction_pair_weight),
         prior_prediction_bonus=normalize_counter(prior_prediction_weight),
         file_summaries=file_summaries,
+        duplicate_summary=duplicate_summary,
     )
 
 
@@ -236,32 +306,26 @@ def build_number_scores(draws: pd.DataFrame, features: CsvFeatureSet, recent_win
     draws = normalize_draw_dataframe(draws)
     recent = draws.tail(min(recent_window, len(draws)))
     prior = draws.iloc[: max(0, len(draws) - len(recent))]
-
     all_cnt = Counter(int(v) for v in draws[NUMBER_COLUMNS].to_numpy().ravel())
     recent_cnt = Counter(int(v) for v in recent[NUMBER_COLUMNS].to_numpy().ravel())
     prior_cnt = Counter(int(v) for v in prior[NUMBER_COLUMNS].to_numpy().ravel()) if not prior.empty else Counter()
-
     gap = {n: len(draws) + 1 for n in range(1, 44)}
     for offset, row in enumerate(draws[NUMBER_COLUMNS].itertuples(index=False, name=None), start=1):
         for n in row:
             gap[int(n)] = len(draws) - offset
-
     f = _scale({n: all_cnt[n] for n in range(1, 44)})
     r = _scale({n: recent_cnt[n] for n in range(1, 44)})
     g = _scale(gap)
     t = _scale({n: recent_cnt[n] / max(1, len(recent)) - prior_cnt[n] / max(1, len(prior)) for n in range(1, 44)})
-
-    scores = {}
-    for n in range(1, 44):
-        scores[n] = (
-            0.32 * f[n]
-            + 0.32 * r[n]
-            + 0.16 * g[n]
-            + 0.08 * t[n]
-            + 0.07 * features.prediction_number_bonus.get(n, 0.0)
-            + 0.05 * features.prior_prediction_bonus.get(n, 0.0)
-        )
-    return scores
+    return {
+        n: 0.32 * f[n]
+        + 0.32 * r[n]
+        + 0.16 * g[n]
+        + 0.08 * t[n]
+        + 0.07 * features.prediction_number_bonus.get(n, 0.0)
+        + 0.05 * features.prior_prediction_bonus.get(n, 0.0)
+        for n in range(1, 44)
+    }
 
 
 def build_pair_scores(draws: pd.DataFrame, features: CsvFeatureSet, recent_window: int = 240) -> dict[tuple[int, int], float]:
@@ -291,25 +355,17 @@ def combo_score(combo: Sequence[int], number_scores: dict[int, float], pair_scor
     return 0.50 * base + 0.23 * pair + 0.10 * odd_balance + 0.09 * sum_balance + 0.08 * zone_balance - consecutive_penalty - duplicate_penalty
 
 
-def generate_standard_predictions(
-    features: CsvFeatureSet,
-    n: int = 5,
-    candidates: int = 5000,
-    seed: int = 42,
-    recent_window: int = 120,
-) -> pd.DataFrame:
+def generate_standard_predictions(features: CsvFeatureSet, n: int = 5, candidates: int = 5000, seed: int = 42, recent_window: int = 120) -> pd.DataFrame:
     draws = normalize_draw_dataframe(features.actual_draws)
     if draws.empty:
         raise RuntimeError("実抽せんデータCSVを検出できませんでした。")
     number_scores = build_number_scores(draws, features, recent_window=recent_window)
     pair_scores = build_pair_scores(draws, features)
     history = {tuple(row) for row in draws[NUMBER_COLUMNS].itertuples(index=False, name=None)}
-
     rng = np.random.default_rng(seed)
     numbers = np.array(list(range(1, 44)))
     weights = np.array([number_scores.get(int(x), 0.0) + 0.03 for x in numbers], dtype=float)
     weights = weights / weights.sum()
-
     ranked_numbers = sorted(range(1, 44), key=lambda x: number_scores.get(x, 0.0), reverse=True)
     candidate_set: set[tuple[int, ...]] = set()
     top_pool = ranked_numbers[:20]
@@ -320,7 +376,6 @@ def generate_standard_predictions(
     while len(candidate_set) < candidates:
         pick = rng.choice(numbers, size=6, replace=False, p=weights)
         candidate_set.add(normalize_numbers(map(int, pick)))
-
     ranked = sorted(((combo_score(c, number_scores, pair_scores, history), c) for c in candidate_set), reverse=True)
     latest = draws.sort_values("draw_no").iloc[-1]
     generated_at = datetime.now(timezone.utc).isoformat()
@@ -353,14 +408,7 @@ def _core_score(core: Sequence[int], number_scores: dict[int, float], pair_score
     return 0.62 * base + 0.25 * pair + 0.07 * odd_balance + 0.06 * zone_balance
 
 
-def generate_third_prize_predictions(
-    features: CsvFeatureSet,
-    n: int = 5,
-    seed: int = 42,
-    recent_window: int = 120,
-    core_pool_size: int = 18,
-    cover_pool_size: int = 32,
-) -> pd.DataFrame:
+def generate_third_prize_predictions(features: CsvFeatureSet, n: int = 5, seed: int = 42, recent_window: int = 120, core_pool_size: int = 18, cover_pool_size: int = 32) -> pd.DataFrame:
     draws = normalize_draw_dataframe(features.actual_draws)
     if draws.empty:
         raise RuntimeError("実抽せんデータCSVを検出できませんでした。")
@@ -368,7 +416,6 @@ def generate_third_prize_predictions(
     pair_scores = build_pair_scores(draws, features)
     history = {tuple(row) for row in draws[NUMBER_COLUMNS].itertuples(index=False, name=None)}
     ranked_numbers = sorted(range(1, 44), key=lambda x: number_scores.get(x, 0.0), reverse=True)
-
     core_pool = ranked_numbers[: max(5, core_pool_size)]
     cover_pool = ranked_numbers[: max(6, cover_pool_size)]
     cores = []
@@ -379,7 +426,6 @@ def generate_third_prize_predictions(
         score -= min(historical_core_hits, 5) * 0.01
         cores.append((score, tuple(sorted(core))))
     cores.sort(reverse=True)
-
     latest = draws.sort_values("draw_no").iloc[-1]
     generated_at = datetime.now(timezone.utc).isoformat()
     rows = []
@@ -422,24 +468,13 @@ def generate_third_prize_predictions(
     return pd.DataFrame(rows)
 
 
-def write_outputs(
-    repo_root: str,
-    standard_output: str,
-    third_output: str,
-    context_output: str,
-    n: int,
-    candidates: int,
-    seed: int,
-    include_outputs: bool,
-) -> None:
+def write_outputs(repo_root: str, standard_output: str, third_output: str, context_output: str, n: int, candidates: int, seed: int, include_outputs: bool) -> None:
     features = load_csv_features(repo_root, include_outputs=include_outputs)
     standard = generate_standard_predictions(features, n=n, candidates=candidates, seed=seed)
     third = generate_third_prize_predictions(features, n=n, seed=seed)
-
     Path(standard_output).parent.mkdir(parents=True, exist_ok=True)
     standard.to_csv(standard_output, index=False, encoding="utf-8")
     third.to_csv(third_output, index=False, encoding="utf-8")
-
     context = {
         "generated_at_utc": datetime.now(timezone.utc).isoformat(),
         "mode": "csv_aware_prediction",
@@ -451,15 +486,17 @@ def write_outputs(
         "number_bonus_count": len(features.prediction_number_bonus),
         "pair_bonus_count": len(features.prediction_pair_bonus),
         "prior_prediction_bonus_count": len(features.prior_prediction_bonus),
+        "duplicate_summary": features.duplicate_summary,
         "file_summaries": features.file_summaries,
-        "note": "All readable CSV files in the repository are inspected. Actual draws, backtest performance, and prior predictions are weighted differently.",
+        "note": "All readable CSV files are inspected, but duplicated draw rows, duplicated backtest rows, and duplicated prior prediction rows are skipped before weighting.",
     }
     Path(context_output).write_text(json.dumps(context, ensure_ascii=False, indent=2), encoding="utf-8")
-
     print("[STANDARD]")
     print(standard.to_string(index=False))
     print("[THIRD_PRIZE_TARGET]")
     print(third.to_string(index=False))
+    print("[DUPLICATES]")
+    print(json.dumps(features.duplicate_summary, ensure_ascii=False, indent=2))
     print(f"[CONTEXT] {context_output}")
 
 
