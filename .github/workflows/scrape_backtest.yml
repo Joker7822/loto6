@@ -71,9 +71,9 @@ jobs:
         run: |
           SCRAPE_MONTHS="${{ inputs.scrape_months || 'all' }}"
           if [ -z "${SCRAPE_MONTHS}" ] || [ "${SCRAPE_MONTHS}" = "all" ] || [ "${SCRAPE_MONTHS}" = "ALL" ]; then
-            python scrapingloto6.py --csv data/loto6.csv --all
+            python scrapingloto6.py --csv data/loto6.csv --all --sleep 2
           else
-            python scrapingloto6.py --csv data/loto6.csv --months "${SCRAPE_MONTHS}"
+            python scrapingloto6.py --csv data/loto6.csv --months "${SCRAPE_MONTHS}" --sleep 2
           fi
 
       - name: Commit scraped CSV
