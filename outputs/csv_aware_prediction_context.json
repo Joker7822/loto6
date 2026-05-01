@@ -1,18 +1,25 @@
 {
-  "generated_at_utc": "2026-05-01T07:50:41.255515+00:00",
+  "generated_at_utc": "2026-05-01T08:14:16.711856+00:00",
   "mode": "csv_aware_prediction",
   "standard_output": "outputs/latest_predictions.csv",
   "third_prize_output": "outputs/latest_predictions_3rd_target.csv",
   "source_csv_files": [
     "data/loto6.csv",
     "outputs/backtest_result.csv",
-    "outputs/backtest_summary.csv"
+    "outputs/backtest_summary.csv",
+    "outputs/latest_predictions.csv",
+    "outputs/latest_predictions_3rd_target.csv"
   ],
-  "source_csv_file_count": 3,
+  "source_csv_file_count": 5,
   "actual_draws": 2098,
   "number_bonus_count": 43,
   "pair_bonus_count": 802,
-  "prior_prediction_bonus_count": 0,
+  "prior_prediction_bonus_count": 11,
+  "duplicate_summary": {
+    "duplicate_actual_draw_rows_skipped": 0,
+    "duplicate_performance_rows_skipped": 0,
+    "duplicate_prior_prediction_rows_skipped": 0
+  },
   "file_summaries": [
     {
       "path": "data/loto6.csv",
@@ -31,6 +38,7 @@
       "used_as": [
         "actual_draws"
       ],
+      "duplicates_skipped": {},
       "actual_draw_rows": 2098
     },
     {
@@ -55,6 +63,7 @@
       "used_as": [
         "backtest_performance"
       ],
+      "duplicates_skipped": {},
       "performance_rows": 1962
     },
     {
@@ -75,8 +84,67 @@
         "grade_counts",
         "max_main_matches"
       ],
-      "used_as": []
+      "used_as": [],
+      "duplicates_skipped": {}
+    },
+    {
+      "path": "outputs/latest_predictions.csv",
+      "rows": 5,
+      "columns": [
+        "generated_at_utc",
+        "strategy",
+        "source_csv_files",
+        "source_draws",
+        "trained_through_draw_no",
+        "trained_through_date",
+        "target",
+        "rank",
+        "numbers",
+        "score",
+        "n1",
+        "n2",
+        "n3",
+        "n4",
+        "n5",
+        "n6"
+      ],
+      "used_as": [
+        "prior_predictions"
+      ],
+      "duplicates_skipped": {},
+      "prior_prediction_rows": 5
+    },
+    {
+      "path": "outputs/latest_predictions_3rd_target.csv",
+      "rows": 5,
+      "columns": [
+        "generated_at_utc",
+        "strategy",
+        "target_grade",
+        "source_csv_files",
+        "source_draws",
+        "trained_through_draw_no",
+        "trained_through_date",
+        "target",
+        "rank",
+        "numbers",
+        "core5",
+        "cover_number",
+        "score",
+        "core_score",
+        "n1",
+        "n2",
+        "n3",
+        "n4",
+        "n5",
+        "n6"
+      ],
+      "used_as": [
+        "prior_predictions"
+      ],
+      "duplicates_skipped": {},
+      "prior_prediction_rows": 5
     }
   ],
-  "note": "All readable CSV files in the repository are inspected. Actual draws, backtest performance, and prior predictions are weighted differently."
+  "note": "All readable CSV files are inspected, but duplicated draw rows, duplicated backtest rows, and duplicated prior prediction rows are skipped before weighting."
 }
