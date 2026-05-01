@@ -26,6 +26,13 @@ outputs/predictions.csv
 !outputs/backtest_result.csv
 !outputs/backtest_summary.csv
 !outputs/backtest_progress.json
+!outputs/backtest_3rd_target_result.csv
+!outputs/backtest_3rd_target_summary.csv
+!outputs/backtest_3rd_target_progress.json
+!outputs/latest_predictions.csv
+!outputs/latest_predictions_3rd_target.csv
+!outputs/latest_predictions_3rd_target_context.json
+!outputs/csv_aware_prediction_context.json
 
 # Local scratch
 .DS_Store
