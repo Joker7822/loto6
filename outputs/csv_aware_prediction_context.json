@@ -1,0 +1,82 @@
+{
+  "generated_at_utc": "2026-05-01T07:50:41.255515+00:00",
+  "mode": "csv_aware_prediction",
+  "standard_output": "outputs/latest_predictions.csv",
+  "third_prize_output": "outputs/latest_predictions_3rd_target.csv",
+  "source_csv_files": [
+    "data/loto6.csv",
+    "outputs/backtest_result.csv",
+    "outputs/backtest_summary.csv"
+  ],
+  "source_csv_file_count": 3,
+  "actual_draws": 2098,
+  "number_bonus_count": 43,
+  "pair_bonus_count": 802,
+  "prior_prediction_bonus_count": 0,
+  "file_summaries": [
+    {
+      "path": "data/loto6.csv",
+      "rows": 2098,
+      "columns": [
+        "draw_no",
+        "date",
+        "n1",
+        "n2",
+        "n3",
+        "n4",
+        "n5",
+        "n6",
+        "bonus"
+      ],
+      "used_as": [
+        "actual_draws"
+      ],
+      "actual_draw_rows": 2098
+    },
+    {
+      "path": "outputs/backtest_result.csv",
+      "rows": 10485,
+      "columns": [
+        "draw_no",
+        "date",
+        "rank",
+        "prediction",
+        "actual",
+        "bonus",
+        "main_matches",
+        "bonus_match",
+        "grade",
+        "score",
+        "source",
+        "train_draws",
+        "train_until_draw_no",
+        "reference_payout_yen"
+      ],
+      "used_as": [
+        "backtest_performance"
+      ],
+      "performance_rows": 1962
+    },
+    {
+      "path": "outputs/backtest_summary.csv",
+      "rows": 1,
+      "columns": [
+        "mode",
+        "total_source_draws",
+        "min_train_draws",
+        "completed_draws",
+        "latest_completed_draw_no",
+        "tickets",
+        "top_n",
+        "cost_yen",
+        "reference_payout_yen",
+        "reference_profit_yen",
+        "reference_roi",
+        "grade_counts",
+        "max_main_matches"
+      ],
+      "used_as": []
+    }
+  ],
+  "note": "All readable CSV files in the repository are inspected. Actual draws, backtest performance, and prior predictions are weighted differently."
+}
