@@ -1,6 +1,7 @@
 name: Loto6 Scrape and Backtest
 
 # Uses Rakuten static backnumber scraper to avoid Mizuho 403 in CI.
+# Default scrape mode is all history from the first available Loto6 draw month.
 
 on:
   push:
@@ -24,9 +25,9 @@ on:
         required: true
         default: '100'
       scrape_months:
-        description: 'Recent months to scrape from Rakuten static pages'
+        description: 'Recent months to scrape, or all for first draw onward'
         required: true
-        default: '12'
+        default: 'all'
       max_draws:
         description: 'Optional debug limit. Empty/all means all remaining draws.'
         required: false
@@ -66,10 +67,14 @@ jobs:
           git config user.name "github-actions"
           git config user.email "github-actions@github.com"
 
-      - name: Scrape latest Loto6 CSV from Rakuten static pages
+      - name: Scrape Loto6 CSV from Rakuten static pages
         run: |
-          SCRAPE_MONTHS="${{ inputs.scrape_months || '12' }}"
-          python scrapingloto6.py --csv data/loto6.csv --months "${SCRAPE_MONTHS}"
+          SCRAPE_MONTHS="${{ inputs.scrape_months || 'all' }}"
+          if [ -z "${SCRAPE_MONTHS}" ] || [ "${SCRAPE_MONTHS}" = "all" ] || [ "${SCRAPE_MONTHS}" = "ALL" ]; then
+            python scrapingloto6.py --csv data/loto6.csv --all
+          else
+            python scrapingloto6.py --csv data/loto6.csv --months "${SCRAPE_MONTHS}"
+          fi
 
       - name: Commit scraped CSV
         run: |
