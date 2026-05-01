@@ -15,7 +15,7 @@ loto6.csv を最新化します。
 使い方:
   python scrapingloto6.py
   python scrapingloto6.py --csv data/loto6.csv --months 6
-  python scrapingloto6.py --csv data/loto6.csv --all
+  python scrapingloto6.py --csv data/loto6.csv --all --sleep 2
 """
 from __future__ import annotations
 
@@ -37,6 +37,7 @@ RAKUTEN_MONTH_URL = "https://takarakuji.rakuten.co.jp/backnumber/loto6/{yyyymm}/
 CSV_COLUMNS = ["draw_no", "date", "n1", "n2", "n3", "n4", "n5", "n6", "bonus"]
 DEFAULT_FIRST_YEAR = 2000
 DEFAULT_FIRST_MONTH = 10
+DEFAULT_SLEEP_SECONDS = 2.0
 
 
 def _http_get(url: str, timeout: int = 30) -> str:
@@ -172,7 +173,13 @@ def _parse_draws_from_month_page(month_html: str) -> list[dict]:
     return out
 
 
-def fetch_latest_draws(months: int = 6, all_history: bool = False, start_year: int = DEFAULT_FIRST_YEAR, start_month: int = DEFAULT_FIRST_MONTH, sleep_seconds: float = 0.15) -> pd.DataFrame:
+def fetch_latest_draws(
+    months: int = 6,
+    all_history: bool = False,
+    start_year: int = DEFAULT_FIRST_YEAR,
+    start_month: int = DEFAULT_FIRST_MONTH,
+    sleep_seconds: float = DEFAULT_SLEEP_SECONDS,
+) -> pd.DataFrame:
     month_urls = _build_month_urls(months=months, all_history=all_history, start_year=start_year, start_month=start_month)
     if not month_urls:
         raise RuntimeError("取得対象の月別ページURLがありません。")
@@ -186,10 +193,11 @@ def fetch_latest_draws(months: int = 6, all_history: bool = False, start_year: i
             if exc.code == 404:
                 print(f"[SKIP] {url} status=404")
                 missing += 1
+                time.sleep(max(0.0, sleep_seconds))
                 continue
             raise
         parsed = _parse_draws_from_month_page(html)
-        print(f"[SCRAPE] {url} rows={len(parsed)}")
+        print(f"[SCRAPE] {url} rows={len(parsed)} sleep={sleep_seconds}")
         rows.extend(parsed)
         time.sleep(max(0.0, sleep_seconds))
 
@@ -248,9 +256,22 @@ def _load_existing(csv_path: str) -> pd.DataFrame:
     return pd.DataFrame(columns=CSV_COLUMNS)
 
 
-def update_loto6_csv(csv_path: str = "data/loto6.csv", months: int = 6, all_history: bool = False, start_year: int = DEFAULT_FIRST_YEAR, start_month: int = DEFAULT_FIRST_MONTH) -> pd.DataFrame:
+def update_loto6_csv(
+    csv_path: str = "data/loto6.csv",
+    months: int = 6,
+    all_history: bool = False,
+    start_year: int = DEFAULT_FIRST_YEAR,
+    start_month: int = DEFAULT_FIRST_MONTH,
+    sleep_seconds: float = DEFAULT_SLEEP_SECONDS,
+) -> pd.DataFrame:
     existing = _load_existing(csv_path)
-    latest = fetch_latest_draws(months=months, all_history=all_history, start_year=start_year, start_month=start_month)
+    latest = fetch_latest_draws(
+        months=months,
+        all_history=all_history,
+        start_year=start_year,
+        start_month=start_month,
+        sleep_seconds=sleep_seconds,
+    )
 
     merged = pd.concat([existing, latest], ignore_index=True)
     merged["_date"] = pd.to_datetime(merged["date"], errors="coerce")
@@ -293,6 +314,7 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--all", action="store_true", help="第1回相当の開始月から現在月まで全期間取得")
     ap.add_argument("--start-year", type=int, default=DEFAULT_FIRST_YEAR, help="--all 時の開始年")
     ap.add_argument("--start-month", type=int, default=DEFAULT_FIRST_MONTH, help="--all 時の開始月")
+    ap.add_argument("--sleep", type=float, default=DEFAULT_SLEEP_SECONDS, help="月別ページ取得ごとの待機秒数")
     args = ap.parse_args(argv)
     update_loto6_csv(
         args.csv,
@@ -300,6 +322,7 @@ def main(argv: list[str] | None = None) -> int:
         all_history=bool(args.all),
         start_year=args.start_year,
         start_month=args.start_month,
+        sleep_seconds=max(0.0, float(args.sleep)),
     )
     return 0
 
