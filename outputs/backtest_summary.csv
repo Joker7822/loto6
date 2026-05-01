@@ -1,2 +1,2 @@
 mode,total_source_draws,min_train_draws,completed_draws,latest_completed_draw_no,tickets,top_n,cost_yen,reference_payout_yen,reference_profit_yen,reference_roi,grade_counts,max_main_matches
-walk_forward_no_future_leakage,2098,1,2097,2098,10485,5,2097000,377200,-1719800,0.179876,"{""はずれ"": 10218, ""5等"": 248, ""4等"": 19}",4
+walk_forward_no_future_leakage,2098,1,200,201,1000,5,200000,63200,-136800,0.316,"{""はずれ"": 960, ""5等"": 36, ""4等"": 4}",4
