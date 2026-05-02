@@ -4,19 +4,11 @@ csv_aware_predict.py
 
 リポジトリ内のすべての .csv ファイルを次回予測に活用します。
 
-重複スキップ方針:
+重複・ノイズ除外方針:
   - 実抽せんデータは draw_no 単位で1件に統合
   - backtest_result 系は draw_no + rank + prediction + actual で重複行をスキップ
   - latest_predictions 系は numbers 単位で重複予測をスキップ
-
-利用するCSVの種類:
-  1. 実抽せんデータCSV
-     - draw_no,date,n1,n2,n3,n4,n5,n6,bonus
-     - または 回別,抽せん日,本数字,ボーナス数字
-  2. 検証結果CSV
-     - prediction,main_matches,grade を含むCSV
-  3. 過去予測CSV
-     - numbers を含むCSV
+  - *.bak.csv / *.incompatible.*.csv / 退避CSV は予測材料から除外
 
 出力:
   outputs/latest_predictions.csv
@@ -56,6 +48,17 @@ class CsvFeatureSet:
     duplicate_summary: dict[str, int]
 
 
+def _should_skip_csv(path: Path) -> bool:
+    name = path.name.lower()
+    if name.endswith(".bak.csv") or ".bak." in name:
+        return True
+    if ".incompatible." in name:
+        return True
+    if name.startswith("~") or name.endswith(".tmp.csv"):
+        return True
+    return False
+
+
 def _parse_numbers_text(value: object, expected_min: int = 6) -> list[int]:
     if value is None or (isinstance(value, float) and math.isnan(value)):
         return []
@@ -78,14 +81,11 @@ def _read_csv_safely(path: Path) -> pd.DataFrame | None:
 def _extract_actual_draws(df: pd.DataFrame) -> pd.DataFrame:
     if df.empty:
         return pd.DataFrame(columns=CSV_DRAW_COLUMNS)
-
     if set(CSV_DRAW_COLUMNS).issubset(df.columns):
-        work = df[CSV_DRAW_COLUMNS].copy()
         try:
-            return normalize_draw_dataframe(work)
+            return normalize_draw_dataframe(df[CSV_DRAW_COLUMNS].copy())
         except Exception:
             return pd.DataFrame(columns=CSV_DRAW_COLUMNS)
-
     jp_required = {"回別", "抽せん日", "本数字", "ボーナス数字"}
     if jp_required.issubset(df.columns):
         rows = []
@@ -105,33 +105,29 @@ def _extract_actual_draws(df: pd.DataFrame) -> pd.DataFrame:
                 draw_no = int(row.get("回別"))
             except Exception:
                 continue
-            rows.append(
-                {
-                    "draw_no": draw_no,
-                    "date": parsed_date.strftime("%Y-%m-%d"),
-                    **{f"n{i}": main[i - 1] for i in range(1, 7)},
-                    "bonus": int(bonus_values[0]),
-                }
-            )
+            rows.append({"draw_no": draw_no, "date": parsed_date.strftime("%Y-%m-%d"), **{f"n{i}": main[i - 1] for i in range(1, 7)}, "bonus": int(bonus_values[0])})
         if rows:
             try:
                 return normalize_draw_dataframe(pd.DataFrame(rows))
             except Exception:
                 return pd.DataFrame(columns=CSV_DRAW_COLUMNS)
-
     return pd.DataFrame(columns=CSV_DRAW_COLUMNS)
 
 
-def _iter_repo_csvs(root: Path, include_outputs: bool = True) -> list[Path]:
+def _iter_repo_csvs(root: Path, include_outputs: bool = True) -> tuple[list[Path], list[str]]:
     csvs = []
+    skipped = []
     for p in root.rglob("*.csv"):
         parts = set(p.parts)
         if ".git" in parts or ".venv" in parts or "venv" in parts:
             continue
         if not include_outputs and "outputs" in parts:
             continue
+        if _should_skip_csv(p):
+            skipped.append(str(p))
+            continue
         csvs.append(p)
-    return sorted(csvs)
+    return sorted(csvs), sorted(skipped)
 
 
 def _actual_draw_key(row: pd.Series) -> int | None:
@@ -154,12 +150,14 @@ def _performance_key(row: pd.Series, nums: Sequence[int]) -> tuple:
 
 def load_csv_features(root: str | Path = ".", include_outputs: bool = True) -> CsvFeatureSet:
     root_path = Path(root)
-    csv_paths = _iter_repo_csvs(root_path, include_outputs=include_outputs)
+    csv_paths, skipped_csv_paths = _iter_repo_csvs(root_path, include_outputs=include_outputs)
     actual_frames: list[pd.DataFrame] = []
     prediction_number_weight: Counter[int] = Counter()
     prediction_pair_weight: Counter[tuple[int, int]] = Counter()
     prior_prediction_weight: Counter[int] = Counter()
     file_summaries: list[dict] = []
+    for skipped in skipped_csv_paths:
+        file_summaries.append({"path": skipped, "status": "skipped_noise_or_backup_csv", "used_as": []})
 
     seen_actual_draws: set[int] = set()
     seen_performance_rows: set[tuple] = set()
@@ -168,6 +166,7 @@ def load_csv_features(root: str | Path = ".", include_outputs: bool = True) -> C
         "duplicate_actual_draw_rows_skipped": 0,
         "duplicate_performance_rows_skipped": 0,
         "duplicate_prior_prediction_rows_skipped": 0,
+        "backup_or_noise_csv_files_skipped": len(skipped_csv_paths),
     }
 
     for path in csv_paths:
@@ -175,14 +174,7 @@ def load_csv_features(root: str | Path = ".", include_outputs: bool = True) -> C
         if df is None:
             file_summaries.append({"path": str(path), "status": "read_failed"})
             continue
-
-        summary = {
-            "path": str(path),
-            "rows": int(len(df)),
-            "columns": list(map(str, df.columns)),
-            "used_as": [],
-            "duplicates_skipped": {},
-        }
+        summary = {"path": str(path), "rows": int(len(df)), "columns": list(map(str, df.columns)), "used_as": [], "duplicates_skipped": {}}
 
         actual = _extract_actual_draws(df)
         if not actual.empty:
@@ -221,7 +213,6 @@ def load_csv_features(root: str | Path = ".", include_outputs: bool = True) -> C
                     skipped += 1
                     continue
                 seen_performance_rows.add(key)
-
                 grade = str(row.get("grade", ""))
                 try:
                     matches = int(row.get("main_matches", 0))
@@ -266,13 +257,9 @@ def load_csv_features(root: str | Path = ".", include_outputs: bool = True) -> C
             if skipped:
                 duplicate_summary["duplicate_prior_prediction_rows_skipped"] += skipped
                 summary["duplicates_skipped"]["prior_predictions"] = skipped
-
         file_summaries.append(summary)
 
-    if actual_frames:
-        actual_draws = normalize_draw_dataframe(pd.concat(actual_frames, ignore_index=True))
-    else:
-        actual_draws = pd.DataFrame(columns=CSV_DRAW_COLUMNS)
+    actual_draws = normalize_draw_dataframe(pd.concat(actual_frames, ignore_index=True)) if actual_frames else pd.DataFrame(columns=CSV_DRAW_COLUMNS)
 
     def normalize_counter(counter: Counter) -> dict:
         if not counter:
@@ -317,15 +304,7 @@ def build_number_scores(draws: pd.DataFrame, features: CsvFeatureSet, recent_win
     r = _scale({n: recent_cnt[n] for n in range(1, 44)})
     g = _scale(gap)
     t = _scale({n: recent_cnt[n] / max(1, len(recent)) - prior_cnt[n] / max(1, len(prior)) for n in range(1, 44)})
-    return {
-        n: 0.32 * f[n]
-        + 0.32 * r[n]
-        + 0.16 * g[n]
-        + 0.08 * t[n]
-        + 0.07 * features.prediction_number_bonus.get(n, 0.0)
-        + 0.05 * features.prior_prediction_bonus.get(n, 0.0)
-        for n in range(1, 44)
-    }
+    return {n: 0.32 * f[n] + 0.32 * r[n] + 0.16 * g[n] + 0.08 * t[n] + 0.07 * features.prediction_number_bonus.get(n, 0.0) + 0.05 * features.prior_prediction_bonus.get(n, 0.0) for n in range(1, 44)}
 
 
 def build_pair_scores(draws: pd.DataFrame, features: CsvFeatureSet, recent_window: int = 240) -> dict[tuple[int, int], float]:
@@ -368,8 +347,7 @@ def generate_standard_predictions(features: CsvFeatureSet, n: int = 5, candidate
     weights = weights / weights.sum()
     ranked_numbers = sorted(range(1, 44), key=lambda x: number_scores.get(x, 0.0), reverse=True)
     candidate_set: set[tuple[int, ...]] = set()
-    top_pool = ranked_numbers[:20]
-    for combo in combinations(top_pool, 6):
+    for combo in combinations(ranked_numbers[:20], 6):
         candidate_set.add(normalize_numbers(combo))
         if len(candidate_set) >= max(100, candidates // 3):
             break
@@ -381,91 +359,16 @@ def generate_standard_predictions(features: CsvFeatureSet, n: int = 5, candidate
     generated_at = datetime.now(timezone.utc).isoformat()
     rows = []
     for rank, (score, combo) in enumerate(ranked[:n], 1):
-        rows.append(
-            {
-                "generated_at_utc": generated_at,
-                "strategy": "csv_aware_ensemble",
-                "source_csv_files": len(features.csv_paths),
-                "source_draws": int(len(draws)),
-                "trained_through_draw_no": int(latest["draw_no"]),
-                "trained_through_date": str(latest["date"].date() if hasattr(latest["date"], "date") else latest["date"]),
-                "target": f"after_draw_{int(latest['draw_no'])}",
-                "rank": rank,
-                "numbers": format_numbers(combo),
-                "score": round(float(score), 6),
-                **{f"n{i}": x for i, x in enumerate(combo, 1)},
-            }
-        )
+        rows.append({"generated_at_utc": generated_at, "strategy": "csv_aware_ensemble", "source_csv_files": len(features.csv_paths), "source_draws": int(len(draws)), "trained_through_draw_no": int(latest["draw_no"]), "trained_through_date": str(latest["date"].date() if hasattr(latest["date"], "date") else latest["date"]), "target": f"after_draw_{int(latest['draw_no'])}", "rank": rank, "numbers": format_numbers(combo), "score": round(float(score), 6), **{f"n{i}": x for i, x in enumerate(combo, 1)}})
     return pd.DataFrame(rows)
-
-
-def _core_score(core: Sequence[int], number_scores: dict[int, float], pair_scores: dict[tuple[int, int], float]) -> float:
-    core = tuple(sorted(int(n) for n in core))
-    base = float(np.mean([number_scores.get(n, 0.0) for n in core]))
-    pair = float(np.mean([pair_scores.get(tuple(sorted(p)), 0.0) for p in combinations(core, 2)]))
-    odd_balance = 1.0 - abs(sum(n % 2 for n in core) - 2.5) / 2.5
-    zone_balance = len({(n - 1) // 10 for n in core}) / 5.0
-    return 0.62 * base + 0.25 * pair + 0.07 * odd_balance + 0.06 * zone_balance
 
 
 def generate_third_prize_predictions(features: CsvFeatureSet, n: int = 5, seed: int = 42, recent_window: int = 120, core_pool_size: int = 18, cover_pool_size: int = 32) -> pd.DataFrame:
-    draws = normalize_draw_dataframe(features.actual_draws)
-    if draws.empty:
-        raise RuntimeError("実抽せんデータCSVを検出できませんでした。")
-    number_scores = build_number_scores(draws, features, recent_window=recent_window)
-    pair_scores = build_pair_scores(draws, features)
-    history = {tuple(row) for row in draws[NUMBER_COLUMNS].itertuples(index=False, name=None)}
-    ranked_numbers = sorted(range(1, 44), key=lambda x: number_scores.get(x, 0.0), reverse=True)
-    core_pool = ranked_numbers[: max(5, core_pool_size)]
-    cover_pool = ranked_numbers[: max(6, cover_pool_size)]
-    cores = []
-    for core in combinations(core_pool, 5):
-        score = _core_score(core, number_scores, pair_scores)
-        core_set = set(core)
-        historical_core_hits = sum(1 for h in history if len(core_set & set(h)) >= 5)
-        score -= min(historical_core_hits, 5) * 0.01
-        cores.append((score, tuple(sorted(core))))
-    cores.sort(reverse=True)
-    latest = draws.sort_values("draw_no").iloc[-1]
-    generated_at = datetime.now(timezone.utc).isoformat()
-    rows = []
-    used: set[tuple[int, ...]] = set()
-    for core_score_value, core in cores:
-        covers = [x for x in cover_pool if x not in core]
-        cover_ranked = []
-        for cover in covers:
-            ticket = normalize_numbers([*core, cover])
-            score = 0.74 * core_score_value + 0.16 * combo_score(ticket, number_scores, pair_scores, history) + 0.10 * number_scores.get(cover, 0.0)
-            if ticket in history:
-                score -= 0.12
-            cover_ranked.append((score, cover, ticket))
-        cover_ranked.sort(reverse=True)
-        for score, cover, ticket in cover_ranked:
-            if ticket in used:
-                continue
-            used.add(ticket)
-            rows.append(
-                {
-                    "generated_at_utc": generated_at,
-                    "strategy": "csv_aware_third_prize_core_cover",
-                    "target_grade": "3等",
-                    "source_csv_files": len(features.csv_paths),
-                    "source_draws": int(len(draws)),
-                    "trained_through_draw_no": int(latest["draw_no"]),
-                    "trained_through_date": str(latest["date"].date() if hasattr(latest["date"], "date") else latest["date"]),
-                    "target": f"after_draw_{int(latest['draw_no'])}",
-                    "rank": len(rows) + 1,
-                    "numbers": format_numbers(ticket),
-                    "core5": " ".join(f"{x:02d}" for x in core),
-                    "cover_number": f"{int(cover):02d}",
-                    "score": round(float(score), 6),
-                    "core_score": round(float(core_score_value), 6),
-                    **{f"n{i}": x for i, x in enumerate(ticket, 1)},
-                }
-            )
-            if len(rows) >= n:
-                return pd.DataFrame(rows)
-    return pd.DataFrame(rows)
+    # Kept for raw baseline output. Optimized live output is produced by third_prize_diversified_predict.py.
+    from third_prize_diversified_predict import generate_diversified_third_predictions
+
+    out, _ = generate_diversified_third_predictions(repo_root=".", n=n, seed=seed, include_outputs=True, recent_window=recent_window, core_pool_size=core_pool_size, cover_pool_size=cover_pool_size, config_path=None)
+    return out
 
 
 def write_outputs(repo_root: str, standard_output: str, third_output: str, context_output: str, n: int, candidates: int, seed: int, include_outputs: bool) -> None:
@@ -475,29 +378,14 @@ def write_outputs(repo_root: str, standard_output: str, third_output: str, conte
     Path(standard_output).parent.mkdir(parents=True, exist_ok=True)
     standard.to_csv(standard_output, index=False, encoding="utf-8")
     third.to_csv(third_output, index=False, encoding="utf-8")
-    context = {
-        "generated_at_utc": datetime.now(timezone.utc).isoformat(),
-        "mode": "csv_aware_prediction",
-        "standard_output": standard_output,
-        "third_prize_output": third_output,
-        "source_csv_files": features.csv_paths,
-        "source_csv_file_count": len(features.csv_paths),
-        "actual_draws": int(len(features.actual_draws)),
-        "number_bonus_count": len(features.prediction_number_bonus),
-        "pair_bonus_count": len(features.prediction_pair_bonus),
-        "prior_prediction_bonus_count": len(features.prior_prediction_bonus),
-        "duplicate_summary": features.duplicate_summary,
-        "file_summaries": features.file_summaries,
-        "note": "All readable CSV files are inspected, but duplicated draw rows, duplicated backtest rows, and duplicated prior prediction rows are skipped before weighting.",
-    }
+    context = {"generated_at_utc": datetime.now(timezone.utc).isoformat(), "mode": "csv_aware_prediction", "standard_output": standard_output, "third_prize_output": third_output, "source_csv_files": features.csv_paths, "source_csv_file_count": len(features.csv_paths), "actual_draws": int(len(features.actual_draws)), "number_bonus_count": len(features.prediction_number_bonus), "pair_bonus_count": len(features.prediction_pair_bonus), "prior_prediction_bonus_count": len(features.prior_prediction_bonus), "duplicate_summary": features.duplicate_summary, "file_summaries": features.file_summaries, "note": "All readable CSV files are inspected, but backup/incompatible CSV files and duplicated rows are skipped before weighting."}
     Path(context_output).write_text(json.dumps(context, ensure_ascii=False, indent=2), encoding="utf-8")
     print("[STANDARD]")
     print(standard.to_string(index=False))
-    print("[THIRD_PRIZE_TARGET]")
+    print("[THIRD_PRIZE_TARGET_RAW]")
     print(third.to_string(index=False))
     print("[DUPLICATES]")
     print(json.dumps(features.duplicate_summary, ensure_ascii=False, indent=2))
-    print(f"[CONTEXT] {context_output}")
 
 
 def main() -> int:
@@ -511,16 +399,7 @@ def main() -> int:
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--include-outputs", action=argparse.BooleanOptionalAction, default=True)
     args = parser.parse_args()
-    write_outputs(
-        repo_root=args.repo_root,
-        standard_output=args.standard_output,
-        third_output=args.third_output,
-        context_output=args.context_output,
-        n=args.n,
-        candidates=args.candidates,
-        seed=args.seed,
-        include_outputs=args.include_outputs,
-    )
+    write_outputs(args.repo_root, args.standard_output, args.third_output, args.context_output, args.n, args.candidates, args.seed, args.include_outputs)
     return 0
 
 
