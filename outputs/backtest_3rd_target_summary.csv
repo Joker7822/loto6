@@ -1,2 +1,2 @@
 mode,total_source_draws,min_train_draws,completed_draws,latest_completed_draw_no,tickets,top_n,max_main_matches,max_core5_matches,core5_5hit_count,core5_4hit_count,near_third_count,third_or_better_count,grade_counts
-third_prize_walk_forward_no_future_leakage,2098,1,1700,1701,8500,5,5,4,0,10,2,1,"{""はずれ"": 8274, ""5等"": 210, ""4等"": 15, ""3等"": 1}"
+third_prize_walk_forward_no_future_leakage,2098,1,1800,1801,9000,5,5,4,0,10,2,1,"{""はずれ"": 8754, ""5等"": 229, ""4等"": 16, ""3等"": 1}"
