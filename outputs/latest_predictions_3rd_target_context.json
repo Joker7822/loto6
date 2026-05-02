@@ -1,19 +1,47 @@
 {
-  "generated_at_utc": "2026-05-01T20:25:58.804068+00:00",
-  "mode": "third_prize_core_diversified_A2_B2_C1",
-  "output": "outputs/latest_predictions_3rd_target.csv",
-  "source_draws": 2098,
+  "generated_at_utc": "2026-05-02T03:21:33.569648+00:00",
+  "strategy": "csv_aware_third_prize_core_cover_diversified",
+  "allocation": [
+    2,
+    2,
+    1
+  ],
+  "selected_cores": [
+    {
+      "core_group": "A",
+      "core5": "06 18 24 35 37",
+      "core_score": 0.693077
+    },
+    {
+      "core_group": "B",
+      "core5": "10 24 35 37 42",
+      "core_score": 0.687811
+    },
+    {
+      "core_group": "C",
+      "core5": "06 21 24 35 42",
+      "core_score": 0.682897
+    }
+  ],
   "source_csv_files": [
     "data/loto6.csv",
     "outputs/backtest_3rd_target_result.csv",
+    "outputs/backtest_3rd_target_result.incompatible.20260502T010432Z.bak.csv",
     "outputs/backtest_3rd_target_summary.csv",
     "outputs/backtest_result.csv",
     "outputs/backtest_summary.csv",
     "outputs/latest_predictions.csv",
-    "outputs/latest_predictions_3rd_target.csv"
+    "outputs/latest_predictions_3rd_target.csv",
+    "outputs/latest_predictions_3rd_target_raw.csv"
   ],
+  "source_csv_file_count": 9,
+  "source_draws": 2098,
   "trained_through_draw_no": 2098,
   "trained_through_date": "2026-04-30",
-  "core_allocation": "A:2, B:2, C:1",
-  "note": "3rd-prize-oriented output. It prioritizes diversified 5-number cores and does not guarantee winning."
+  "duplicate_summary": {
+    "duplicate_actual_draw_rows_skipped": 0,
+    "duplicate_performance_rows_skipped": 154,
+    "duplicate_prior_prediction_rows_skipped": 8572
+  },
+  "note": "3等狙いの5数字コアをA/B/Cへ分散。既定はAコア2口、Bコア2口、Cコア1口。"
 }
