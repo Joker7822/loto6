@@ -9,21 +9,34 @@ nested_third_prize_backtest.py
   - 第N-1回までのnested検証結果
 
 これにより、最適化パラメータが未来の検証結果を見ない形で評価できます。
+
+逐次push:
+  --push-every 100 を指定すると、100抽せん回ごとに
+  nested_3rd_target_result.csv / summary / progress をcommit/pushします。
 """
 from __future__ import annotations
 
 import argparse
 import json
+import os
+import subprocess
+import time
 from collections import Counter
-from datetime import datetime, timezone
 from itertools import combinations
 from pathlib import Path
+from typing import Sequence
 
 import numpy as np
 import pandas as pd
 
 from csv_aware_predict import CsvFeatureSet, build_number_scores, build_pair_scores, combo_score
 from loto6 import NUMBER_COLUMNS, classify_loto6, format_numbers, load_draws, normalize_draw_dataframe, normalize_numbers
+
+TRACKED_OUTPUTS = [
+    "nested_3rd_target_result.csv",
+    "nested_3rd_target_summary.csv",
+    "nested_3rd_target_progress.json",
+]
 
 
 def _empty_features(train_df: pd.DataFrame) -> CsvFeatureSet:
@@ -212,13 +225,66 @@ def _summarize(df: pd.DataFrame, total_draws: int, min_train_draws: int, top_n: 
     }
 
 
-def run_nested(csv_path: str, output_dir: str, min_train_draws: int, top_n: int, seed: int, max_draws: int | None) -> tuple[pd.DataFrame, dict]:
+def _write_outputs(result_df: pd.DataFrame, summary: dict, out_dir: Path) -> tuple[Path, Path, Path]:
+    result_path = out_dir / "nested_3rd_target_result.csv"
+    summary_path = out_dir / "nested_3rd_target_summary.csv"
+    progress_path = out_dir / "nested_3rd_target_progress.json"
+    result_df.sort_values(["draw_no", "rank"]).to_csv(result_path, index=False, encoding="utf-8")
+    pd.DataFrame([summary | {"grade_counts": json.dumps(summary.get("grade_counts", {}), ensure_ascii=False)}]).to_csv(summary_path, index=False, encoding="utf-8")
+    progress_path.write_text(json.dumps(summary, ensure_ascii=False, indent=2), encoding="utf-8")
+    return result_path, summary_path, progress_path
+
+
+def _run_git(args: list[str], check: bool = True) -> subprocess.CompletedProcess:
+    return subprocess.run(["git", *args], text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, check=check)
+
+
+def _current_branch() -> str:
+    ref = os.environ.get("GITHUB_REF_NAME")
+    if ref:
+        return ref
+    result = _run_git(["rev-parse", "--abbrev-ref", "HEAD"])
+    return result.stdout.strip()
+
+
+def git_commit_and_push(paths: Sequence[Path | str], message: str, max_attempts: int = 3) -> bool:
+    branch = _current_branch()
+    _run_git(["config", "user.name", os.environ.get("GIT_COMMITTER_NAME", "github-actions")], check=False)
+    _run_git(["config", "user.email", os.environ.get("GIT_COMMITTER_EMAIL", "github-actions@github.com")], check=False)
+    _run_git(["add", *[str(p) for p in paths]])
+    if _run_git(["diff", "--cached", "--quiet"], check=False).returncode == 0:
+        print("[PUSH] no nested changes to commit")
+        return False
+    _run_git(["commit", "-m", message])
+    for attempt in range(1, max_attempts + 1):
+        _run_git(["fetch", "origin", branch], check=False)
+        _run_git(["rebase", f"origin/{branch}"], check=False)
+        pushed = _run_git(["push", "origin", f"HEAD:{branch}"], check=False)
+        if pushed.returncode == 0:
+            print(f"[PUSH] pushed nested progress: {message}")
+            return True
+        print(f"[PUSH] failed attempt {attempt}/{max_attempts}: {pushed.stdout}")
+        if attempt == max_attempts:
+            raise RuntimeError(f"git push failed after {max_attempts} attempts")
+        time.sleep(2 * attempt)
+    return False
+
+
+def run_nested(
+    csv_path: str,
+    output_dir: str,
+    min_train_draws: int,
+    top_n: int,
+    seed: int,
+    max_draws: int | None,
+    push_every: int = 0,
+    push_final: bool = True,
+) -> tuple[pd.DataFrame, dict]:
     draws = normalize_draw_dataframe(load_draws(csv_path))
     out_dir = Path(output_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
     result_path = out_dir / "nested_3rd_target_result.csv"
-    summary_path = out_dir / "nested_3rd_target_summary.csv"
-    progress_path = out_dir / "nested_3rd_target_progress.json"
+    tracked_paths = [out_dir / name for name in TRACKED_OUTPUTS]
 
     result_df = pd.read_csv(result_path) if result_path.exists() and result_path.stat().st_size else pd.DataFrame()
     completed = set(result_df["draw_no"].astype(int)) if not result_df.empty and "draw_no" in result_df.columns else set()
@@ -226,6 +292,7 @@ def run_nested(csv_path: str, output_dir: str, min_train_draws: int, top_n: int,
     if max_draws is not None:
         target_indexes = target_indexes[:max_draws]
 
+    new_since_push = 0
     for idx in target_indexes:
         actual = draws.iloc[idx]
         draw_no = int(actual["draw_no"])
@@ -265,12 +332,21 @@ def run_nested(csv_path: str, output_dir: str, min_train_draws: int, top_n: int,
                 "train_until_draw_no": int(train_df["draw_no"].max()),
             })
         result_df = pd.concat([result_df, pd.DataFrame(rows)], ignore_index=True)
+        completed.add(draw_no)
+        new_since_push += 1
         summary = _summarize(result_df, len(draws), min_train_draws, top_n)
-        result_df.sort_values(["draw_no", "rank"]).to_csv(result_path, index=False, encoding="utf-8")
-        pd.DataFrame([summary | {"grade_counts": json.dumps(summary.get("grade_counts", {}), ensure_ascii=False)}]).to_csv(summary_path, index=False, encoding="utf-8")
-        progress_path.write_text(json.dumps(summary, ensure_ascii=False, indent=2), encoding="utf-8")
+        _write_outputs(result_df, summary, out_dir)
         print(f"nested_verified draw={draw_no} completed={summary['completed_draws']} max_core5={summary.get('max_core5_matches')} max_main={summary.get('max_main_matches')}")
+
+        if push_every > 0 and new_since_push >= push_every:
+            git_commit_and_push(tracked_paths, f"Nested 3rd target progress up to draw {draw_no} [skip ci]")
+            new_since_push = 0
+
     summary = _summarize(result_df, len(draws), min_train_draws, top_n)
+    _write_outputs(result_df, summary, out_dir)
+    if push_every > 0 and push_final and new_since_push > 0:
+        suffix = summary.get("latest_completed_draw_no") or "none"
+        git_commit_and_push(tracked_paths, f"Nested 3rd target final progress up to draw {suffix} [skip ci]")
     return result_df, summary
 
 
@@ -282,8 +358,19 @@ def main() -> int:
     parser.add_argument("--top-n", type=int, default=5)
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--max-draws", type=int, default=None)
+    parser.add_argument("--push-every", type=int, default=0)
+    parser.add_argument("--push-final", action=argparse.BooleanOptionalAction, default=True)
     args = parser.parse_args()
-    _, summary = run_nested(args.csv, args.output_dir, args.min_train_draws, args.top_n, args.seed, args.max_draws)
+    _, summary = run_nested(
+        args.csv,
+        args.output_dir,
+        args.min_train_draws,
+        args.top_n,
+        args.seed,
+        args.max_draws,
+        push_every=args.push_every,
+        push_final=args.push_final,
+    )
     print(json.dumps(summary, ensure_ascii=False, indent=2))
     return 0
 
