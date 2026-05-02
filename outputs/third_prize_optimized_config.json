@@ -60,7 +60,7 @@
     "source_draws": 2098,
     "latest_draw_no": 2098
   },
-  "optimized_at_utc": "2026-05-02T06:45:36.079391+00:00",
+  "optimized_at_utc": "2026-05-02T08:03:22.000150+00:00",
   "result_csv": "outputs/backtest_3rd_target_result.csv",
   "draw_csv": "data/loto6.csv",
   "report_csv": "outputs/third_prize_optimization_report.csv"
