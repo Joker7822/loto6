@@ -140,11 +140,15 @@ jobs:
             --result-csv outputs/backtest_3rd_target_result.csv \
             --output outputs/core5_performance.csv
 
-      - name: Run nested optimized third-prize backtest
+      - name: Run nested optimized third-prize backtest with incremental push
+        env:
+          GIT_COMMITTER_NAME: github-actions
+          GIT_COMMITTER_EMAIL: github-actions@github.com
         run: |
           TOP_N="${{ inputs.top_n || '5' }}"
+          PUSH_EVERY="${{ inputs.push_every || '100' }}"
           MAX_DRAWS="${{ inputs.max_draws }}"
-          CMD="python nested_third_prize_backtest.py --csv data/loto6.csv --min-train-draws 1 --top-n ${TOP_N} --output-dir outputs"
+          CMD="python nested_third_prize_backtest.py --csv data/loto6.csv --min-train-draws 1 --top-n ${TOP_N} --output-dir outputs --push-every ${PUSH_EVERY} --push-final"
           if [ -n "${MAX_DRAWS}" ] && [ "${MAX_DRAWS}" != "all" ] && [ "${MAX_DRAWS}" != "ALL" ]; then
             CMD="$CMD --max-draws '${MAX_DRAWS}'"
           fi
