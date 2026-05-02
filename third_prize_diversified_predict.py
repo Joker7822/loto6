@@ -9,8 +9,9 @@ third_prize_diversified_predict.py
   - Bコア: 2口
   - Cコア: 1口
 
-目的:
-  1つの5数字コアに寄せすぎて全滅するリスクを下げる。
+最適化:
+  outputs/third_prize_optimized_config.json が存在する場合、
+  recent_window / core_pool_size / cover_pool_size / allocation などを自動反映します。
 """
 from __future__ import annotations
 
@@ -31,6 +32,21 @@ from csv_aware_predict import (
 )
 from loto6 import NUMBER_COLUMNS, format_numbers, normalize_draw_dataframe, normalize_numbers
 
+DEFAULT_CONFIG_PATH = "outputs/third_prize_optimized_config.json"
+
+
+def _load_optimized_config(path: str | None) -> dict:
+    if not path:
+        return {}
+    p = Path(path)
+    if not p.exists() or p.stat().st_size == 0:
+        return {}
+    try:
+        return json.loads(p.read_text(encoding="utf-8"))
+    except Exception as exc:
+        print(f"[WARN] failed to load optimized config {p}: {exc}")
+        return {}
+
 
 def _core_score(core, number_scores, pair_scores) -> float:
     core = tuple(sorted(int(n) for n in core))
@@ -46,23 +62,26 @@ def _overlap(a, b) -> int:
     return len(set(a) & set(b))
 
 
-def _select_diverse_cores(core_ranked: list[tuple[float, tuple[int, ...]]], core_count: int = 3) -> list[tuple[float, tuple[int, ...]]]:
+def _select_diverse_cores(
+    core_ranked: list[tuple[float, tuple[int, ...]]],
+    core_count: int = 3,
+    overlap_limit: int = 3,
+) -> list[tuple[float, tuple[int, ...]]]:
     selected: list[tuple[float, tuple[int, ...]]] = []
     for score, core in core_ranked:
         if not selected:
             selected.append((score, core))
             continue
-        # A/B/Cを別物にするため、5数字コア同士の重複は最大3個までを優先。
-        if all(_overlap(core, chosen) <= 3 for _, chosen in selected):
+        if all(_overlap(core, chosen) <= overlap_limit for _, chosen in selected):
             selected.append((score, core))
         if len(selected) >= core_count:
             return selected
 
-    # 条件が厳しすぎて足りない場合のみ、重複4個まで許容する。
+    fallback_limit = min(4, max(overlap_limit + 1, overlap_limit))
     for score, core in core_ranked:
         if any(core == chosen for _, chosen in selected):
             continue
-        if all(_overlap(core, chosen) <= 4 for _, chosen in selected):
+        if all(_overlap(core, chosen) <= fallback_limit for _, chosen in selected):
             selected.append((score, core))
         if len(selected) >= core_count:
             return selected
@@ -77,7 +96,20 @@ def generate_diversified_third_predictions(
     recent_window: int = 120,
     core_pool_size: int = 22,
     cover_pool_size: int = 34,
+    config_path: str | None = DEFAULT_CONFIG_PATH,
 ) -> tuple[pd.DataFrame, dict]:
+    optimized_config = _load_optimized_config(config_path)
+    if optimized_config:
+        recent_window = int(optimized_config.get("recent_window", recent_window))
+        core_pool_size = int(optimized_config.get("core_pool_size", core_pool_size))
+        cover_pool_size = int(optimized_config.get("cover_pool_size", cover_pool_size))
+        seed = int(optimized_config.get("seed", seed))
+
+    core_count = int(optimized_config.get("core_count", 3)) if optimized_config else 3
+    core_overlap_limit = int(optimized_config.get("core_overlap_limit", 3)) if optimized_config else 3
+    history_penalty = float(optimized_config.get("history_penalty", 0.12)) if optimized_config else 0.12
+    cover_reuse_penalty = float(optimized_config.get("cover_reuse_penalty", 0.0)) if optimized_config else 0.0
+
     features = load_csv_features(repo_root, include_outputs=include_outputs)
     draws = normalize_draw_dataframe(features.actual_draws)
     if draws.empty:
@@ -99,14 +131,18 @@ def generate_diversified_third_predictions(
         score -= min(historical_core_hits, 5) * 0.01
         core_ranked.append((float(score), core))
     core_ranked.sort(reverse=True)
-    selected_cores = _select_diverse_cores(core_ranked, core_count=3)
+    selected_cores = _select_diverse_cores(core_ranked, core_count=core_count, overlap_limit=core_overlap_limit)
 
-    allocation = [2, 2, 1]
-    if n != 5:
-        allocation = [max(1, n // 3), max(1, n // 3), max(1, n - 2 * max(1, n // 3))]
+    allocation = optimized_config.get("allocation", [2, 2, 1]) if optimized_config else [2, 2, 1]
+    allocation = [int(x) for x in allocation]
+    if n != sum(allocation):
+        base = max(1, n // max(1, core_count))
+        allocation = [base for _ in range(max(1, core_count))]
+        allocation[-1] = max(1, n - sum(allocation[:-1]))
 
     rows = []
     used_tickets: set[tuple[int, ...]] = set()
+    used_covers: CounterLike = {}
     latest = draws.sort_values("draw_no").iloc[-1]
     generated_at = datetime.now(timezone.utc).isoformat()
 
@@ -123,7 +159,8 @@ def generate_diversified_third_predictions(
                 + 0.10 * number_scores.get(int(cover), 0.0)
             )
             if ticket in history:
-                score -= 0.12
+                score -= history_penalty
+            score -= cover_reuse_penalty * used_covers.get(int(cover), 0)
             cover_ranked.append((float(score), int(cover), ticket))
         cover_ranked.sort(reverse=True)
 
@@ -132,11 +169,12 @@ def generate_diversified_third_predictions(
             if ticket in used_tickets:
                 continue
             used_tickets.add(ticket)
+            used_covers[cover] = used_covers.get(cover, 0) + 1
             emitted_for_core += 1
             rows.append(
                 {
                     "generated_at_utc": generated_at,
-                    "strategy": "csv_aware_third_prize_core_cover_diversified",
+                    "strategy": "csv_aware_third_prize_core_cover_diversified_optimized" if optimized_config else "csv_aware_third_prize_core_cover_diversified",
                     "target_grade": "3等",
                     "core_group": chr(ord("A") + core_index),
                     "source_csv_files": len(features.csv_paths),
@@ -161,7 +199,20 @@ def generate_diversified_third_predictions(
     out = pd.DataFrame(rows)
     context = {
         "generated_at_utc": generated_at,
-        "strategy": "csv_aware_third_prize_core_cover_diversified",
+        "strategy": "csv_aware_third_prize_core_cover_diversified_optimized" if optimized_config else "csv_aware_third_prize_core_cover_diversified",
+        "optimized_config_path": config_path if optimized_config else None,
+        "optimized_config": optimized_config,
+        "effective_parameters": {
+            "recent_window": recent_window,
+            "core_pool_size": core_pool_size,
+            "cover_pool_size": cover_pool_size,
+            "core_count": core_count,
+            "core_overlap_limit": core_overlap_limit,
+            "allocation": allocation,
+            "history_penalty": history_penalty,
+            "cover_reuse_penalty": cover_reuse_penalty,
+            "seed": seed,
+        },
         "allocation": allocation,
         "selected_cores": [
             {"core_group": chr(ord("A") + i), "core5": " ".join(f"{x:02d}" for x in core), "core_score": round(score, 6)}
@@ -173,7 +224,7 @@ def generate_diversified_third_predictions(
         "trained_through_draw_no": int(latest["draw_no"]),
         "trained_through_date": str(latest["date"].date() if hasattr(latest["date"], "date") else latest["date"]),
         "duplicate_summary": features.duplicate_summary,
-        "note": "3等狙いの5数字コアをA/B/Cへ分散。既定はAコア2口、Bコア2口、Cコア1口。",
+        "note": "3等狙いの5数字コアをA/B/Cへ分散し、backtest結果から最適化されたパラメータを反映。",
     }
     return out, context
 
@@ -183,6 +234,7 @@ def main() -> int:
     parser.add_argument("--repo-root", default=".")
     parser.add_argument("--output", default="outputs/latest_predictions_3rd_target.csv")
     parser.add_argument("--context", default="outputs/latest_predictions_3rd_target_context.json")
+    parser.add_argument("--config", default=DEFAULT_CONFIG_PATH)
     parser.add_argument("-n", type=int, default=5)
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--include-outputs", action=argparse.BooleanOptionalAction, default=True)
@@ -193,6 +245,7 @@ def main() -> int:
         n=args.n,
         seed=args.seed,
         include_outputs=args.include_outputs,
+        config_path=args.config,
     )
     out = Path(args.output)
     out.parent.mkdir(parents=True, exist_ok=True)
@@ -201,6 +254,10 @@ def main() -> int:
     print(df.to_string(index=False))
     print(json.dumps(context, ensure_ascii=False, indent=2))
     return 0
+
+
+# simple alias for type readability without requiring Python 3.12 type syntax
+CounterLike = dict[int, int]
 
 
 if __name__ == "__main__":
