@@ -22,6 +22,7 @@ import os
 import subprocess
 import time
 from collections import Counter
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Sequence
 
@@ -35,6 +36,16 @@ TRACKED_OUTPUTS = [
     "backtest_3rd_target_summary.csv",
     "backtest_3rd_target_progress.json",
 ]
+
+REQUIRED_RESULT_COLUMNS = {
+    "draw_no",
+    "rank",
+    "numbers",
+    "core5",
+    "core5_matches",
+    "main_matches",
+    "grade",
+}
 
 
 def _empty_features(train_df: pd.DataFrame) -> CsvFeatureSet:
@@ -58,15 +69,45 @@ def _core5_matches(core5_text: str, actual_main: Sequence[int]) -> int:
     return len(core_nums & set(map(int, actual_main)))
 
 
+def _backup_incompatible_result(path: Path, reason: str) -> None:
+    """Move incompatible resume file out of the way and restart safely.
+
+    Older experimental versions produced outputs/backtest_3rd_target_result.csv with
+    different columns. Failing hard blocks Actions forever, so keep a timestamped backup
+    and regenerate the new schema from scratch.
+    """
+    if not path.exists():
+        return
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    backup_path = path.with_name(f"{path.stem}.incompatible.{stamp}.bak.csv")
+    path.replace(backup_path)
+    print(f"[RESET_RESUME] moved incompatible file: {path} -> {backup_path}; reason={reason}")
+
+
 def _read_existing_result(path: Path, top_n: int) -> pd.DataFrame:
     if not path.exists() or path.stat().st_size == 0:
         return pd.DataFrame()
-    df = pd.read_csv(path)
-    if not {"draw_no", "rank", "numbers", "core5"}.issubset(df.columns):
-        raise ValueError(f"Existing 3rd-target result is incompatible: {path}")
-    counts = df.groupby("draw_no")["rank"].nunique()
-    complete = set(counts[counts >= top_n].index.astype(int))
-    return df[df["draw_no"].astype(int).isin(complete)].copy()
+    try:
+        df = pd.read_csv(path)
+    except Exception as exc:
+        _backup_incompatible_result(path, f"read_failed:{exc}")
+        return pd.DataFrame()
+
+    missing = REQUIRED_RESULT_COLUMNS - set(df.columns)
+    if missing:
+        _backup_incompatible_result(path, f"missing_columns:{sorted(missing)}")
+        return pd.DataFrame()
+
+    try:
+        counts = df.groupby("draw_no")["rank"].nunique()
+        complete = set(counts[counts >= top_n].index.astype(int))
+        filtered = df[df["draw_no"].astype(int).isin(complete)].copy()
+    except Exception as exc:
+        _backup_incompatible_result(path, f"invalid_resume_rows:{exc}")
+        return pd.DataFrame()
+
+    print(f"[RESUME] loaded completed 3rd-target draws={filtered['draw_no'].nunique() if not filtered.empty else 0}")
+    return filtered
 
 
 def _summarize(result_df: pd.DataFrame, total_source_draws: int, min_train_draws: int, top_n: int) -> dict:
