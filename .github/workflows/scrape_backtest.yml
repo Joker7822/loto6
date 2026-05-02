@@ -136,6 +136,20 @@ jobs:
             --draw-csv data/loto6.csv \
             --config-output outputs/third_prize_optimized_config.json \
             --report-output outputs/third_prize_optimization_report.csv
+          python core5_performance.py \
+            --result-csv outputs/backtest_3rd_target_result.csv \
+            --output outputs/core5_performance.csv
+
+      - name: Run nested optimized third-prize backtest
+        run: |
+          TOP_N="${{ inputs.top_n || '5' }}"
+          MAX_DRAWS="${{ inputs.max_draws }}"
+          CMD="python nested_third_prize_backtest.py --csv data/loto6.csv --min-train-draws 1 --top-n ${TOP_N} --output-dir outputs"
+          if [ -n "${MAX_DRAWS}" ] && [ "${MAX_DRAWS}" != "all" ] && [ "${MAX_DRAWS}" != "ALL" ]; then
+            CMD="$CMD --max-draws '${MAX_DRAWS}'"
+          fi
+          echo "$CMD"
+          eval "$CMD"
 
       - name: Generate CSV-aware latest Loto6 predictions
         run: |
@@ -157,7 +171,7 @@ jobs:
             --config outputs/third_prize_optimized_config.json \
             --include-outputs
 
-      - name: Commit latest predictions, third-prize backtest, and optimization
+      - name: Commit latest predictions, third-prize backtests, and optimization
         run: |
           set -e
           git add \
@@ -168,6 +182,10 @@ jobs:
             outputs/csv_aware_prediction_context.json \
             outputs/third_prize_optimized_config.json \
             outputs/third_prize_optimization_report.csv \
+            outputs/core5_performance.csv \
+            outputs/nested_3rd_target_result.csv \
+            outputs/nested_3rd_target_summary.csv \
+            outputs/nested_3rd_target_progress.json \
             outputs/backtest_3rd_target_result.csv \
             outputs/backtest_3rd_target_summary.csv \
             outputs/backtest_3rd_target_progress.json
@@ -181,7 +199,7 @@ jobs:
           print(int(df['draw_no'].max()))
           PY
           )
-          git commit -m "Optimize third-prize Loto6 predictions after draw ${LATEST_DRAW} [skip ci]"
+          git commit -m "Improve optimized third-prize Loto6 predictions after draw ${LATEST_DRAW} [skip ci]"
           for attempt in 1 2 3; do
             git fetch origin main || true
             git rebase origin/main || true
@@ -208,6 +226,10 @@ jobs:
             outputs/backtest_3rd_target_progress.json
             outputs/third_prize_optimized_config.json
             outputs/third_prize_optimization_report.csv
+            outputs/core5_performance.csv
+            outputs/nested_3rd_target_result.csv
+            outputs/nested_3rd_target_summary.csv
+            outputs/nested_3rd_target_progress.json
             outputs/latest_predictions.csv
             outputs/latest_predictions_3rd_target.csv
             outputs/latest_predictions_3rd_target_raw.csv
