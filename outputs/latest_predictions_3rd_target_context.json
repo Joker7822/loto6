@@ -1,6 +1,23 @@
 {
-  "generated_at_utc": "2026-05-02T03:21:33.569648+00:00",
+  "generated_at_utc": "2026-05-02T03:53:14.134992+00:00",
   "strategy": "csv_aware_third_prize_core_cover_diversified",
+  "optimized_config_path": null,
+  "optimized_config": {},
+  "effective_parameters": {
+    "recent_window": 120,
+    "core_pool_size": 22,
+    "cover_pool_size": 34,
+    "core_count": 3,
+    "core_overlap_limit": 3,
+    "allocation": [
+      2,
+      2,
+      1
+    ],
+    "history_penalty": 0.12,
+    "cover_reuse_penalty": 0.0,
+    "seed": 42
+  },
   "allocation": [
     2,
     2,
@@ -10,23 +27,22 @@
     {
       "core_group": "A",
       "core5": "06 18 24 35 37",
-      "core_score": 0.693077
+      "core_score": 0.689834
     },
     {
       "core_group": "B",
       "core5": "10 24 35 37 42",
-      "core_score": 0.687811
+      "core_score": 0.685036
     },
     {
       "core_group": "C",
       "core5": "06 21 24 35 42",
-      "core_score": 0.682897
+      "core_score": 0.68132
     }
   ],
   "source_csv_files": [
     "data/loto6.csv",
     "outputs/backtest_3rd_target_result.csv",
-    "outputs/backtest_3rd_target_result.incompatible.20260502T010432Z.bak.csv",
     "outputs/backtest_3rd_target_summary.csv",
     "outputs/backtest_result.csv",
     "outputs/backtest_summary.csv",
@@ -34,14 +50,14 @@
     "outputs/latest_predictions_3rd_target.csv",
     "outputs/latest_predictions_3rd_target_raw.csv"
   ],
-  "source_csv_file_count": 9,
+  "source_csv_file_count": 8,
   "source_draws": 2098,
   "trained_through_draw_no": 2098,
   "trained_through_date": "2026-04-30",
   "duplicate_summary": {
     "duplicate_actual_draw_rows_skipped": 0,
-    "duplicate_performance_rows_skipped": 154,
+    "duplicate_performance_rows_skipped": 0,
     "duplicate_prior_prediction_rows_skipped": 8572
   },
-  "note": "3等狙いの5数字コアをA/B/Cへ分散。既定はAコア2口、Bコア2口、Cコア1口。"
+  "note": "3等狙いの5数字コアをA/B/Cへ分散し、backtest結果から最適化されたパラメータを反映。"
 }

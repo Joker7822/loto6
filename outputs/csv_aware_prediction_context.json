@@ -1,27 +1,27 @@
 {
-  "generated_at_utc": "2026-05-02T03:20:58.860657+00:00",
+  "generated_at_utc": "2026-05-02T03:52:40.474808+00:00",
   "mode": "csv_aware_prediction",
   "standard_output": "outputs/latest_predictions.csv",
   "third_prize_output": "outputs/latest_predictions_3rd_target_raw.csv",
   "source_csv_files": [
     "data/loto6.csv",
     "outputs/backtest_3rd_target_result.csv",
-    "outputs/backtest_3rd_target_result.incompatible.20260502T010432Z.bak.csv",
     "outputs/backtest_3rd_target_summary.csv",
     "outputs/backtest_result.csv",
     "outputs/backtest_summary.csv",
     "outputs/latest_predictions.csv",
-    "outputs/latest_predictions_3rd_target.csv"
+    "outputs/latest_predictions_3rd_target.csv",
+    "outputs/latest_predictions_3rd_target_raw.csv"
   ],
   "source_csv_file_count": 8,
   "actual_draws": 2098,
   "number_bonus_count": 43,
-  "pair_bonus_count": 824,
+  "pair_bonus_count": 787,
   "prior_prediction_bonus_count": 43,
   "duplicate_summary": {
     "duplicate_actual_draw_rows_skipped": 0,
-    "duplicate_performance_rows_skipped": 154,
-    "duplicate_prior_prediction_rows_skipped": 8570
+    "duplicate_performance_rows_skipped": 0,
+    "duplicate_prior_prediction_rows_skipped": 8572
   },
   "file_summaries": [
     {
@@ -74,36 +74,6 @@
       "prior_prediction_rows": 1917
     },
     {
-      "path": "outputs/backtest_3rd_target_result.incompatible.20260502T010432Z.bak.csv",
-      "rows": 10485,
-      "columns": [
-        "draw_no",
-        "date",
-        "rank",
-        "core_label",
-        "prediction",
-        "core5",
-        "cover_number",
-        "actual",
-        "bonus",
-        "train_draws",
-        "train_until_draw_no",
-        "score",
-        "core_score",
-        "main_matches",
-        "bonus_match",
-        "grade",
-        "core5_matches",
-        "core5_5hit",
-        "core5_4plus"
-      ],
-      "used_as": [
-        "backtest_performance"
-      ],
-      "duplicates_skipped": {},
-      "performance_rows": 1867
-    },
-    {
       "path": "outputs/backtest_3rd_target_summary.csv",
       "rows": 1,
       "columns": [
@@ -147,10 +117,8 @@
       "used_as": [
         "backtest_performance"
       ],
-      "duplicates_skipped": {
-        "backtest_performance": 154
-      },
-      "performance_rows": 1934
+      "duplicates_skipped": {},
+      "performance_rows": 1963
     },
     {
       "path": "outputs/backtest_summary.csv",
@@ -207,19 +175,51 @@
         "generated_at_utc",
         "strategy",
         "target_grade",
+        "core_group",
         "source_csv_files",
         "source_draws",
         "trained_through_draw_no",
         "trained_through_date",
         "target",
         "rank",
-        "core_label",
         "numbers",
         "core5",
         "cover_number",
         "score",
         "core_score",
-        "cover_score",
+        "n1",
+        "n2",
+        "n3",
+        "n4",
+        "n5",
+        "n6"
+      ],
+      "used_as": [
+        "prior_predictions"
+      ],
+      "duplicates_skipped": {
+        "prior_predictions": 2
+      },
+      "prior_prediction_rows": 3
+    },
+    {
+      "path": "outputs/latest_predictions_3rd_target_raw.csv",
+      "rows": 5,
+      "columns": [
+        "generated_at_utc",
+        "strategy",
+        "target_grade",
+        "source_csv_files",
+        "source_draws",
+        "trained_through_draw_no",
+        "trained_through_date",
+        "target",
+        "rank",
+        "numbers",
+        "core5",
+        "cover_number",
+        "score",
+        "core_score",
         "n1",
         "n2",
         "n3",

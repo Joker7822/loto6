@@ -1,6 +1,6 @@
 generated_at_utc,strategy,target_grade,core_group,source_csv_files,source_draws,trained_through_draw_no,trained_through_date,target,rank,numbers,core5,cover_number,score,core_score,n1,n2,n3,n4,n5,n6
-2026-05-02T03:21:33.569648+00:00,csv_aware_third_prize_core_cover_diversified,3等,A,9,2098,2098,2026-04-30,after_draw_2098,1,06 18 24 35 37 42,06 18 24 35 37,42,0.694533,0.693077,6,18,24,35,37,42
-2026-05-02T03:21:33.569648+00:00,csv_aware_third_prize_core_cover_diversified,3等,A,9,2098,2098,2026-04-30,after_draw_2098,2,06 18 21 24 35 37,06 18 24 35 37,21,0.694195,0.693077,6,18,21,24,35,37
-2026-05-02T03:21:33.569648+00:00,csv_aware_third_prize_core_cover_diversified,3等,B,9,2098,2098,2026-04-30,after_draw_2098,3,06 10 24 35 37 42,10 24 35 37 42,06,0.685668,0.687811,6,10,24,35,37,42
-2026-05-02T03:21:33.569648+00:00,csv_aware_third_prize_core_cover_diversified,3等,B,9,2098,2098,2026-04-30,after_draw_2098,4,10 21 24 35 37 42,10 24 35 37 42,21,0.685191,0.687811,10,21,24,35,37,42
-2026-05-02T03:21:33.569648+00:00,csv_aware_third_prize_core_cover_diversified,3等,C,9,2098,2098,2026-04-30,after_draw_2098,5,06 21 24 35 37 42,06 21 24 35 42,37,0.694293,0.682897,6,21,24,35,37,42
+2026-05-02T03:53:14.134992+00:00,csv_aware_third_prize_core_cover_diversified,3等,A,8,2098,2098,2026-04-30,after_draw_2098,1,06 18 24 35 37 42,06 18 24 35 37,42,0.691644,0.689834,6,18,24,35,37,42
+2026-05-02T03:53:14.134992+00:00,csv_aware_third_prize_core_cover_diversified,3等,A,8,2098,2098,2026-04-30,after_draw_2098,2,06 18 21 24 35 37,06 18 24 35 37,21,0.691483,0.689834,6,18,21,24,35,37
+2026-05-02T03:53:14.134992+00:00,csv_aware_third_prize_core_cover_diversified,3等,B,8,2098,2098,2026-04-30,after_draw_2098,3,06 10 24 35 37 42,10 24 35 37 42,06,0.683273,0.685036,6,10,24,35,37,42
+2026-05-02T03:53:14.134992+00:00,csv_aware_third_prize_core_cover_diversified,3等,B,8,2098,2098,2026-04-30,after_draw_2098,4,10 21 24 35 37 42,10 24 35 37 42,21,0.682889,0.685036,10,21,24,35,37,42
+2026-05-02T03:53:14.134992+00:00,csv_aware_third_prize_core_cover_diversified,3等,C,8,2098,2098,2026-04-30,after_draw_2098,5,06 21 24 35 37 42,06 21 24 35 42,37,0.69221,0.68132,6,21,24,35,37,42
