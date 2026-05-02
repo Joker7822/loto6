@@ -1,6 +1,6 @@
 generated_at_utc,strategy,target_grade,core_group,source_csv_files,source_draws,trained_through_draw_no,trained_through_date,target,rank,numbers,core5,cover_number,score,core_score,n1,n2,n3,n4,n5,n6
-2026-05-02T08:05:38.896653+00:00,csv_aware_third_prize_core_cover_diversified_optimized,3等,A,9,2098,2098,2026-04-30,after_draw_2098,1,06 10 18 21 37 42,06 18 21 37 42,10,0.670981,0.673128,6,10,18,21,37,42
-2026-05-02T08:05:38.896653+00:00,csv_aware_third_prize_core_cover_diversified_optimized,3等,A,9,2098,2098,2026-04-30,after_draw_2098,2,06 18 21 37 39 42,06 18 21 37 42,39,0.670659,0.673128,6,18,21,37,39,42
-2026-05-02T08:05:38.896653+00:00,csv_aware_third_prize_core_cover_diversified_optimized,3等,B,9,2098,2098,2026-04-30,after_draw_2098,3,06 10 24 35 37 42,10 24 35 37 42,06,0.665469,0.665506,6,10,24,35,37,42
-2026-05-02T08:05:38.896653+00:00,csv_aware_third_prize_core_cover_diversified_optimized,3等,B,9,2098,2098,2026-04-30,after_draw_2098,4,10 21 24 35 37 42,10 24 35 37 42,21,0.661488,0.665506,10,21,24,35,37,42
-2026-05-02T08:05:38.896653+00:00,csv_aware_third_prize_core_cover_diversified_optimized,3等,C,9,2098,2098,2026-04-30,after_draw_2098,5,06 18 26 35 37 42,06 18 26 35 37,42,0.667589,0.662526,6,18,26,35,37,42
+2026-05-02T08:10:07.170103+00:00,csv_aware_third_prize_core_cover_diversified_optimized,3等,A,9,2098,2098,2026-04-30,after_draw_2098,1,06 10 18 21 37 42,06 18 21 37 42,10,0.670981,0.673128,6,10,18,21,37,42
+2026-05-02T08:10:07.170103+00:00,csv_aware_third_prize_core_cover_diversified_optimized,3等,A,9,2098,2098,2026-04-30,after_draw_2098,2,06 18 21 37 39 42,06 18 21 37 42,39,0.670659,0.673128,6,18,21,37,39,42
+2026-05-02T08:10:07.170103+00:00,csv_aware_third_prize_core_cover_diversified_optimized,3等,B,9,2098,2098,2026-04-30,after_draw_2098,3,06 10 24 35 37 42,10 24 35 37 42,06,0.665469,0.665506,6,10,24,35,37,42
+2026-05-02T08:10:07.170103+00:00,csv_aware_third_prize_core_cover_diversified_optimized,3等,B,9,2098,2098,2026-04-30,after_draw_2098,4,10 21 24 35 37 42,10 24 35 37 42,21,0.661488,0.665506,10,21,24,35,37,42
+2026-05-02T08:10:07.170103+00:00,csv_aware_third_prize_core_cover_diversified_optimized,3等,C,9,2098,2098,2026-04-30,after_draw_2098,5,06 18 26 35 37 42,06 18 26 35 37,42,0.667589,0.662526,6,18,26,35,37,42

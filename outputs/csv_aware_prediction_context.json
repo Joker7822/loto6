@@ -1,5 +1,5 @@
 {
-  "generated_at_utc": "2026-05-02T08:03:35.725252+00:00",
+  "generated_at_utc": "2026-05-02T08:08:31.270082+00:00",
   "mode": "csv_aware_prediction",
   "standard_output": "outputs/latest_predictions.csv",
   "third_prize_output": "outputs/latest_predictions_3rd_target_raw.csv",
@@ -22,7 +22,7 @@
   "duplicate_summary": {
     "duplicate_actual_draw_rows_skipped": 0,
     "duplicate_performance_rows_skipped": 0,
-    "duplicate_prior_prediction_rows_skipped": 8569,
+    "duplicate_prior_prediction_rows_skipped": 8572,
     "backup_or_noise_csv_files_skipped": 0
   },
   "file_summaries": [
@@ -209,6 +209,7 @@
         "generated_at_utc",
         "strategy",
         "target_grade",
+        "core_group",
         "source_csv_files",
         "source_draws",
         "trained_through_draw_no",
@@ -231,9 +232,9 @@
         "prior_predictions"
       ],
       "duplicates_skipped": {
-        "prior_predictions": 1
+        "prior_predictions": 4
       },
-      "prior_prediction_rows": 4
+      "prior_prediction_rows": 1
     },
     {
       "path": "outputs/third_prize_optimization_report.csv",

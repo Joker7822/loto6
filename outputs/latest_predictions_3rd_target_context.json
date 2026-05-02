@@ -1,5 +1,5 @@
 {
-  "generated_at_utc": "2026-05-02T08:05:38.896653+00:00",
+  "generated_at_utc": "2026-05-02T08:10:07.170103+00:00",
   "strategy": "csv_aware_third_prize_core_cover_diversified_optimized",
   "optimized_config_path": "outputs/third_prize_optimized_config.json",
   "optimized_config": {
@@ -64,7 +64,7 @@
       "source_draws": 2098,
       "latest_draw_no": 2098
     },
-    "optimized_at_utc": "2026-05-02T08:03:22.000150+00:00",
+    "optimized_at_utc": "2026-05-02T08:08:21.386835+00:00",
     "result_csv": "outputs/backtest_3rd_target_result.csv",
     "draw_csv": "data/loto6.csv",
     "report_csv": "outputs/third_prize_optimization_report.csv"
