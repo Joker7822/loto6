@@ -2,9 +2,9 @@
   "mode": "third_prize_walk_forward_no_future_leakage",
   "total_source_draws": 2098,
   "min_train_draws": 1,
-  "completed_draws": 2000,
-  "latest_completed_draw_no": 2001,
-  "tickets": 10000,
+  "completed_draws": 2097,
+  "latest_completed_draw_no": 2098,
+  "tickets": 10485,
   "top_n": 5,
   "max_main_matches": 5,
   "max_core5_matches": 4,
@@ -13,8 +13,8 @@
   "near_third_count": 2,
   "third_or_better_count": 1,
   "grade_counts": {
-    "はずれ": 9738,
-    "5等": 245,
+    "はずれ": 10215,
+    "5等": 253,
     "4等": 16,
     "3等": 1
   }
