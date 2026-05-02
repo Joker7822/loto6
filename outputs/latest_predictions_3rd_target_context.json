@@ -1,12 +1,11 @@
 {
-  "generated_at_utc": "2026-05-02T03:53:14.134992+00:00",
-  "strategy": "csv_aware_third_prize_core_cover_diversified",
-  "optimized_config_path": null,
-  "optimized_config": {},
-  "effective_parameters": {
-    "recent_window": 120,
-    "core_pool_size": 22,
-    "cover_pool_size": 34,
+  "generated_at_utc": "2026-05-02T06:47:48.424331+00:00",
+  "strategy": "csv_aware_third_prize_core_cover_diversified_optimized",
+  "optimized_config_path": "outputs/third_prize_optimized_config.json",
+  "optimized_config": {
+    "recent_window": 80,
+    "core_pool_size": 28,
+    "cover_pool_size": 40,
     "core_count": 3,
     "core_overlap_limit": 3,
     "allocation": [
@@ -14,8 +13,75 @@
       2,
       1
     ],
-    "history_penalty": 0.12,
-    "cover_reuse_penalty": 0.0,
+    "history_penalty": 0.08,
+    "cover_reuse_penalty": 0.01,
+    "seed": 42,
+    "reason": "core5_4plus_sparse; increase core and cover diversity; main5_found; reduce history penalty slightly",
+    "optimized_metrics": {
+      "total": {
+        "window": 0,
+        "rows": 10485,
+        "draws": 2097,
+        "score": 966.5,
+        "score_per_draw": 0.460897,
+        "third_or_better": 1,
+        "core5_4plus": 10,
+        "max_core5": 4,
+        "max_main": 5,
+        "near_third_draws": 2,
+        "fourth_count": 16,
+        "fifth_count": 253
+      },
+      "recent120": {
+        "window": 120,
+        "rows": 600,
+        "draws": 120,
+        "score": 47.5,
+        "score_per_draw": 0.395833,
+        "third_or_better": 0,
+        "core5_4plus": 0,
+        "max_core5": 2,
+        "max_main": 3,
+        "near_third_draws": 0,
+        "fourth_count": 0,
+        "fifth_count": 11
+      },
+      "recent240": {
+        "window": 240,
+        "rows": 1200,
+        "draws": 240,
+        "score": 73.5,
+        "score_per_draw": 0.30625,
+        "third_or_better": 0,
+        "core5_4plus": 0,
+        "max_core5": 3,
+        "max_main": 3,
+        "near_third_draws": 0,
+        "fourth_count": 0,
+        "fifth_count": 23
+      },
+      "best_window_score_per_draw": 0.48125,
+      "source_draws": 2098,
+      "latest_draw_no": 2098
+    },
+    "optimized_at_utc": "2026-05-02T06:45:36.079391+00:00",
+    "result_csv": "outputs/backtest_3rd_target_result.csv",
+    "draw_csv": "data/loto6.csv",
+    "report_csv": "outputs/third_prize_optimization_report.csv"
+  },
+  "effective_parameters": {
+    "recent_window": 80,
+    "core_pool_size": 28,
+    "cover_pool_size": 40,
+    "core_count": 3,
+    "core_overlap_limit": 3,
+    "allocation": [
+      2,
+      2,
+      1
+    ],
+    "history_penalty": 0.08,
+    "cover_reuse_penalty": 0.01,
     "seed": 42
   },
   "allocation": [
@@ -26,18 +92,18 @@
   "selected_cores": [
     {
       "core_group": "A",
-      "core5": "06 18 24 35 37",
-      "core_score": 0.689834
+      "core5": "06 18 21 37 42",
+      "core_score": 0.673085
     },
     {
       "core_group": "B",
       "core5": "10 24 35 37 42",
-      "core_score": 0.685036
+      "core_score": 0.665524
     },
     {
       "core_group": "C",
-      "core5": "06 21 24 35 42",
-      "core_score": 0.68132
+      "core5": "06 18 26 35 37",
+      "core_score": 0.662543
     }
   ],
   "source_csv_files": [
@@ -48,9 +114,10 @@
     "outputs/backtest_summary.csv",
     "outputs/latest_predictions.csv",
     "outputs/latest_predictions_3rd_target.csv",
-    "outputs/latest_predictions_3rd_target_raw.csv"
+    "outputs/latest_predictions_3rd_target_raw.csv",
+    "outputs/third_prize_optimization_report.csv"
   ],
-  "source_csv_file_count": 8,
+  "source_csv_file_count": 9,
   "source_draws": 2098,
   "trained_through_draw_no": 2098,
   "trained_through_date": "2026-04-30",

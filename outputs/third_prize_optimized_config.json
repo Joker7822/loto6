@@ -1,0 +1,67 @@
+{
+  "recent_window": 80,
+  "core_pool_size": 28,
+  "cover_pool_size": 40,
+  "core_count": 3,
+  "core_overlap_limit": 3,
+  "allocation": [
+    2,
+    2,
+    1
+  ],
+  "history_penalty": 0.08,
+  "cover_reuse_penalty": 0.01,
+  "seed": 42,
+  "reason": "core5_4plus_sparse; increase core and cover diversity; main5_found; reduce history penalty slightly",
+  "optimized_metrics": {
+    "total": {
+      "window": 0,
+      "rows": 10485,
+      "draws": 2097,
+      "score": 966.5,
+      "score_per_draw": 0.460897,
+      "third_or_better": 1,
+      "core5_4plus": 10,
+      "max_core5": 4,
+      "max_main": 5,
+      "near_third_draws": 2,
+      "fourth_count": 16,
+      "fifth_count": 253
+    },
+    "recent120": {
+      "window": 120,
+      "rows": 600,
+      "draws": 120,
+      "score": 47.5,
+      "score_per_draw": 0.395833,
+      "third_or_better": 0,
+      "core5_4plus": 0,
+      "max_core5": 2,
+      "max_main": 3,
+      "near_third_draws": 0,
+      "fourth_count": 0,
+      "fifth_count": 11
+    },
+    "recent240": {
+      "window": 240,
+      "rows": 1200,
+      "draws": 240,
+      "score": 73.5,
+      "score_per_draw": 0.30625,
+      "third_or_better": 0,
+      "core5_4plus": 0,
+      "max_core5": 3,
+      "max_main": 3,
+      "near_third_draws": 0,
+      "fourth_count": 0,
+      "fifth_count": 23
+    },
+    "best_window_score_per_draw": 0.48125,
+    "source_draws": 2098,
+    "latest_draw_no": 2098
+  },
+  "optimized_at_utc": "2026-05-02T06:45:36.079391+00:00",
+  "result_csv": "outputs/backtest_3rd_target_result.csv",
+  "draw_csv": "data/loto6.csv",
+  "report_csv": "outputs/third_prize_optimization_report.csv"
+}
