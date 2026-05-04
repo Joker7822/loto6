@@ -16,10 +16,10 @@
   "optimized_metrics": {
     "total": {
       "window": 0,
-      "rows": 10485,
-      "draws": 2097,
+      "rows": 10490,
+      "draws": 2098,
       "score": 966.5,
-      "score_per_draw": 0.460897,
+      "score_per_draw": 0.460677,
       "third_or_better": 1,
       "core5_4plus": 10,
       "max_core5": 4,
@@ -32,15 +32,15 @@
       "window": 120,
       "rows": 600,
       "draws": 120,
-      "score": 47.5,
-      "score_per_draw": 0.395833,
+      "score": 46.0,
+      "score_per_draw": 0.383333,
       "third_or_better": 0,
       "core5_4plus": 0,
       "max_core5": 2,
       "max_main": 3,
       "near_third_draws": 0,
       "fourth_count": 0,
-      "fifth_count": 11
+      "fifth_count": 10
     },
     "recent240": {
       "window": 240,
@@ -57,10 +57,10 @@
       "fifth_count": 23
     },
     "best_window_score_per_draw": 0.48125,
-    "source_draws": 2098,
-    "latest_draw_no": 2098
+    "source_draws": 2099,
+    "latest_draw_no": 2099
   },
-  "optimized_at_utc": "2026-05-02T08:08:21.386835+00:00",
+  "optimized_at_utc": "2026-05-04T20:38:08.873698+00:00",
   "result_csv": "outputs/backtest_3rd_target_result.csv",
   "draw_csv": "data/loto6.csv",
   "report_csv": "outputs/third_prize_optimization_report.csv"

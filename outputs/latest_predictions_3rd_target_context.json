@@ -1,5 +1,5 @@
 {
-  "generated_at_utc": "2026-05-02T08:10:07.170103+00:00",
+  "generated_at_utc": "2026-05-04T23:55:12.880607+00:00",
   "strategy": "csv_aware_third_prize_core_cover_diversified_optimized",
   "optimized_config_path": "outputs/third_prize_optimized_config.json",
   "optimized_config": {
@@ -20,10 +20,10 @@
     "optimized_metrics": {
       "total": {
         "window": 0,
-        "rows": 10485,
-        "draws": 2097,
+        "rows": 10490,
+        "draws": 2098,
         "score": 966.5,
-        "score_per_draw": 0.460897,
+        "score_per_draw": 0.460677,
         "third_or_better": 1,
         "core5_4plus": 10,
         "max_core5": 4,
@@ -36,15 +36,15 @@
         "window": 120,
         "rows": 600,
         "draws": 120,
-        "score": 47.5,
-        "score_per_draw": 0.395833,
+        "score": 46.0,
+        "score_per_draw": 0.383333,
         "third_or_better": 0,
         "core5_4plus": 0,
         "max_core5": 2,
         "max_main": 3,
         "near_third_draws": 0,
         "fourth_count": 0,
-        "fifth_count": 11
+        "fifth_count": 10
       },
       "recent240": {
         "window": 240,
@@ -61,10 +61,10 @@
         "fifth_count": 23
       },
       "best_window_score_per_draw": 0.48125,
-      "source_draws": 2098,
-      "latest_draw_no": 2098
+      "source_draws": 2099,
+      "latest_draw_no": 2099
     },
-    "optimized_at_utc": "2026-05-02T08:08:21.386835+00:00",
+    "optimized_at_utc": "2026-05-04T20:38:08.873698+00:00",
     "result_csv": "outputs/backtest_3rd_target_result.csv",
     "draw_csv": "data/loto6.csv",
     "report_csv": "outputs/third_prize_optimization_report.csv"
@@ -93,17 +93,17 @@
     {
       "core_group": "A",
       "core5": "06 18 21 37 42",
-      "core_score": 0.673128
+      "core_score": 0.677119
     },
     {
       "core_group": "B",
-      "core5": "10 24 35 37 42",
-      "core_score": 0.665506
+      "core5": "10 15 24 37 42",
+      "core_score": 0.670642
     },
     {
       "core_group": "C",
-      "core5": "06 18 26 35 37",
-      "core_score": 0.662526
+      "core5": "10 19 21 37 42",
+      "core_score": 0.666912
     }
   ],
   "source_csv_files": [
@@ -112,19 +112,22 @@
     "outputs/backtest_3rd_target_summary.csv",
     "outputs/backtest_result.csv",
     "outputs/backtest_summary.csv",
+    "outputs/core5_performance.csv",
     "outputs/latest_predictions.csv",
     "outputs/latest_predictions_3rd_target.csv",
     "outputs/latest_predictions_3rd_target_raw.csv",
+    "outputs/nested_3rd_target_result.csv",
+    "outputs/nested_3rd_target_summary.csv",
     "outputs/third_prize_optimization_report.csv"
   ],
-  "source_csv_file_count": 9,
-  "source_draws": 2098,
-  "trained_through_draw_no": 2098,
-  "trained_through_date": "2026-04-30",
+  "source_csv_file_count": 12,
+  "source_draws": 2099,
+  "trained_through_draw_no": 2099,
+  "trained_through_date": "2026-05-04",
   "duplicate_summary": {
     "duplicate_actual_draw_rows_skipped": 0,
     "duplicate_performance_rows_skipped": 0,
-    "duplicate_prior_prediction_rows_skipped": 8572,
+    "duplicate_prior_prediction_rows_skipped": 17520,
     "backup_or_noise_csv_files_skipped": 0
   },
   "note": "3等狙いの5数字コアをA/B/Cへ分散し、backtest結果から最適化されたパラメータを反映。"
