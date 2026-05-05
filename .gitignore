@@ -29,8 +29,15 @@ outputs/predictions.csv
 !outputs/backtest_3rd_target_result.csv
 !outputs/backtest_3rd_target_summary.csv
 !outputs/backtest_3rd_target_progress.json
+!outputs/nested_3rd_target_result.csv
+!outputs/nested_3rd_target_summary.csv
+!outputs/nested_3rd_target_progress.json
+!outputs/third_prize_optimized_config.json
+!outputs/third_prize_optimization_report.csv
+!outputs/core5_performance.csv
 !outputs/latest_predictions.csv
 !outputs/latest_predictions_3rd_target.csv
+!outputs/latest_predictions_3rd_target_raw.csv
 !outputs/latest_predictions_3rd_target_context.json
 !outputs/csv_aware_prediction_context.json
 
