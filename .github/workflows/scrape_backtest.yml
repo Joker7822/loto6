@@ -247,11 +247,22 @@ jobs:
             --config outputs/third_prize_optimized_config.json \
             --core5-performance outputs/core5_performance.csv \
             --include-outputs
+          python generate_next_prediction_summary.py \
+            --draw-csv data/loto6.csv \
+            --standard-csv outputs/latest_predictions.csv \
+            --third-csv outputs/latest_predictions_3rd_target.csv \
+            --third-context-json outputs/latest_predictions_3rd_target_context.json \
+            --markdown-output outputs/NEXT_DRAW_PREDICTION.md \
+            --summary-csv-output outputs/next_draw_prediction_summary.csv \
+            --context-output outputs/next_draw_prediction_context.json
 
-      - name: Commit latest predictions, third-prize backtests, and optimization
+      - name: Commit latest predictions, next-draw summary, third-prize backtests, and optimization
         run: |
           set -e
           git add \
+            outputs/NEXT_DRAW_PREDICTION.md \
+            outputs/next_draw_prediction_summary.csv \
+            outputs/next_draw_prediction_context.json \
             outputs/latest_predictions.csv \
             outputs/latest_predictions_3rd_target.csv \
             outputs/latest_predictions_3rd_target_raw.csv \
@@ -270,7 +281,7 @@ jobs:
             outputs/backtest_summary.csv \
             outputs/backtest_progress.json
           if git diff --cached --quiet; then
-            echo "No latest prediction, optimization, or backtest changes to commit."
+            echo "No latest prediction, next-draw summary, optimization, or backtest changes to commit."
             exit 0
           fi
           LATEST_DRAW=$(python - <<'PY'
@@ -279,7 +290,8 @@ jobs:
           print(int(df['draw_no'].max()))
           PY
           )
-          git commit -m "Improve optimized third-prize Loto6 predictions after draw ${LATEST_DRAW} [skip ci]"
+          NEXT_DRAW=$((LATEST_DRAW + 1))
+          git commit -m "Update Loto6 next draw ${NEXT_DRAW} prediction summary [skip ci]"
           for attempt in 1 2 3 4 5; do
             git fetch origin "$BRANCH_NAME" || true
             git rebase "origin/$BRANCH_NAME" || true
@@ -298,6 +310,9 @@ jobs:
           name: loto6-scrape-backtest-outputs
           path: |
             data/loto6.csv
+            outputs/NEXT_DRAW_PREDICTION.md
+            outputs/next_draw_prediction_summary.csv
+            outputs/next_draw_prediction_context.json
             outputs/backtest_result.csv
             outputs/backtest_summary.csv
             outputs/backtest_progress.json
