@@ -1,5 +1,5 @@
 {
-  "generated_at_utc": "2026-05-04T23:53:09.813833+00:00",
+  "generated_at_utc": "2026-05-05T02:03:10.167787+00:00",
   "mode": "csv_aware_prediction",
   "standard_output": "outputs/latest_predictions.csv",
   "third_prize_output": "outputs/latest_predictions_3rd_target_raw.csv",
@@ -25,7 +25,7 @@
   "duplicate_summary": {
     "duplicate_actual_draw_rows_skipped": 0,
     "duplicate_performance_rows_skipped": 0,
-    "duplicate_prior_prediction_rows_skipped": 17519,
+    "duplicate_prior_prediction_rows_skipped": 17518,
     "backup_or_noise_csv_files_skipped": 0
   },
   "file_summaries": [
@@ -225,9 +225,9 @@
         "prior_predictions"
       ],
       "duplicates_skipped": {
-        "prior_predictions": 2
+        "prior_predictions": 1
       },
-      "prior_prediction_rows": 3
+      "prior_prediction_rows": 4
     },
     {
       "path": "outputs/latest_predictions_3rd_target_raw.csv",
@@ -255,13 +255,10 @@
         "n5",
         "n6"
       ],
-      "used_as": [
-        "prior_predictions"
-      ],
+      "used_as": [],
       "duplicates_skipped": {
-        "prior_predictions": 4
-      },
-      "prior_prediction_rows": 1
+        "prior_predictions": 5
+      }
     },
     {
       "path": "outputs/nested_3rd_target_result.csv",
@@ -293,9 +290,9 @@
         "prior_predictions"
       ],
       "duplicates_skipped": {
-        "prior_predictions": 8942
+        "prior_predictions": 8941
       },
-      "prior_prediction_rows": 1548
+      "prior_prediction_rows": 1549
     },
     {
       "path": "outputs/nested_3rd_target_summary.csv",

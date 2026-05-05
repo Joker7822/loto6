@@ -1,6 +1,6 @@
 {
-  "generated_at_utc": "2026-05-04T23:55:12.880607+00:00",
-  "strategy": "csv_aware_third_prize_core_cover_diversified_optimized",
+  "generated_at_utc": "2026-05-05T02:05:15.973060+00:00",
+  "strategy": "csv_aware_third_prize_core_cover_diversified_optimized_core5perf",
   "optimized_config_path": "outputs/third_prize_optimized_config.json",
   "optimized_config": {
     "recent_window": 80,
@@ -64,10 +64,57 @@
       "source_draws": 2099,
       "latest_draw_no": 2099
     },
-    "optimized_at_utc": "2026-05-04T20:38:08.873698+00:00",
+    "optimized_at_utc": "2026-05-05T02:02:53.944039+00:00",
     "result_csv": "outputs/backtest_3rd_target_result.csv",
     "draw_csv": "data/loto6.csv",
     "report_csv": "outputs/third_prize_optimization_report.csv"
+  },
+  "core5_performance": {
+    "used": true,
+    "path": "outputs/core5_performance.csv",
+    "core5_count": 315,
+    "top_core5": [
+      [
+        "10 23 24 27 38",
+        1.0
+      ],
+      [
+        "11 19 20 35 38",
+        0.9462221027157838
+      ],
+      [
+        "02 05 27 32 37",
+        0.8924442054315677
+      ],
+      [
+        "04 19 29 36 37",
+        0.8924442054315677
+      ],
+      [
+        "05 19 26 37 42",
+        0.8924442054315677
+      ],
+      [
+        "06 10 12 23 39",
+        0.8924442054315677
+      ],
+      [
+        "06 19 23 31 38",
+        0.8924442054315677
+      ],
+      [
+        "08 12 23 34 41",
+        0.8924442054315677
+      ],
+      [
+        "10 13 27 37 38",
+        0.8924442054315677
+      ],
+      [
+        "12 14 23 28 43",
+        0.8924442054315677
+      ]
+    ]
   },
   "effective_parameters": {
     "recent_window": 80,
@@ -82,7 +129,8 @@
     ],
     "history_penalty": 0.08,
     "cover_reuse_penalty": 0.01,
-    "seed": 42
+    "seed": 42,
+    "core5_performance_path": "outputs/core5_performance.csv"
   },
   "allocation": [
     2,
@@ -92,18 +140,21 @@
   "selected_cores": [
     {
       "core_group": "A",
-      "core5": "06 18 21 37 42",
-      "core_score": 0.677119
+      "core5": "10 24 35 37 42",
+      "core_score": 0.655673,
+      "core5_performance_bonus": 0.486959
     },
     {
       "core_group": "B",
-      "core5": "10 15 24 37 42",
-      "core_score": 0.670642
+      "core5": "05 19 26 37 42",
+      "core_score": 0.648287,
+      "core5_performance_bonus": 0.892444
     },
     {
       "core_group": "C",
-      "core5": "10 19 21 37 42",
-      "core_score": 0.666912
+      "core5": "10 19 21 35 42",
+      "core_score": 0.624976,
+      "core5_performance_bonus": 0.486959
     }
   ],
   "source_csv_files": [
@@ -127,8 +178,8 @@
   "duplicate_summary": {
     "duplicate_actual_draw_rows_skipped": 0,
     "duplicate_performance_rows_skipped": 0,
-    "duplicate_prior_prediction_rows_skipped": 17520,
+    "duplicate_prior_prediction_rows_skipped": 17518,
     "backup_or_noise_csv_files_skipped": 0
   },
-  "note": "3等狙いの5数字コアをA/B/Cへ分散し、backtest結果から最適化されたパラメータを反映。"
+  "note": "3等狙いの5数字コアをA/B/Cへ分散し、最適化設定とcore5過去成績を反映。"
 }
