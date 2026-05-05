@@ -1,5 +1,5 @@
 {
-  "generated_at_utc": "2026-05-05T03:20:15.346774+00:00",
+  "generated_at_utc": "2026-05-05T03:23:15.082009+00:00",
   "mode": "csv_aware_prediction",
   "standard_output": "outputs/latest_predictions.csv",
   "third_prize_output": "outputs/latest_predictions_3rd_target_raw.csv",
@@ -10,13 +10,14 @@
     "outputs/backtest_result.csv",
     "outputs/backtest_summary.csv",
     "outputs/core5_performance.csv",
+    "outputs/latest_predictions.csv",
     "outputs/latest_predictions_3rd_target.csv",
     "outputs/latest_predictions_3rd_target_raw.csv",
     "outputs/nested_3rd_target_result.csv",
     "outputs/nested_3rd_target_summary.csv",
     "outputs/third_prize_optimization_report.csv"
   ],
-  "source_csv_file_count": 11,
+  "source_csv_file_count": 12,
   "actual_draws": 2099,
   "number_bonus_count": 43,
   "pair_bonus_count": 788,
@@ -24,7 +25,7 @@
   "duplicate_summary": {
     "duplicate_actual_draw_rows_skipped": 0,
     "duplicate_performance_rows_skipped": 0,
-    "duplicate_prior_prediction_rows_skipped": 17520,
+    "duplicate_prior_prediction_rows_skipped": 17521,
     "backup_or_noise_csv_files_skipped": 0
   },
   "file_summaries": [
@@ -168,6 +169,33 @@
       "duplicates_skipped": {}
     },
     {
+      "path": "outputs/latest_predictions.csv",
+      "rows": 5,
+      "columns": [
+        "generated_at_utc",
+        "strategy",
+        "source_csv_files",
+        "source_draws",
+        "trained_through_draw_no",
+        "trained_through_date",
+        "target",
+        "rank",
+        "numbers",
+        "score",
+        "n1",
+        "n2",
+        "n3",
+        "n4",
+        "n5",
+        "n6"
+      ],
+      "used_as": [
+        "prior_predictions"
+      ],
+      "duplicates_skipped": {},
+      "prior_prediction_rows": 5
+    },
+    {
       "path": "outputs/latest_predictions_3rd_target.csv",
       "rows": 5,
       "columns": [
@@ -267,9 +295,9 @@
         "prior_predictions"
       ],
       "duplicates_skipped": {
-        "prior_predictions": 8942
+        "prior_predictions": 8943
       },
-      "prior_prediction_rows": 1548
+      "prior_prediction_rows": 1547
     },
     {
       "path": "outputs/nested_3rd_target_summary.csv",
