@@ -140,6 +140,35 @@ jobs:
             --result-csv outputs/backtest_3rd_target_result.csv \
             --output outputs/core5_performance.csv
 
+      - name: Commit optimization and core5 performance before nested backtest
+        run: |
+          set -e
+          git add \
+            outputs/third_prize_optimized_config.json \
+            outputs/third_prize_optimization_report.csv \
+            outputs/core5_performance.csv
+          if git diff --cached --quiet; then
+            echo "No optimization/core5 changes to commit."
+            exit 0
+          fi
+          LATEST_DRAW=$(python - <<'PY'
+          import pandas as pd
+          df = pd.read_csv('data/loto6.csv')
+          print(int(df['draw_no'].max()))
+          PY
+          )
+          git commit -m "Update third-prize optimization and core5 performance after draw ${LATEST_DRAW} [skip ci]"
+          for attempt in 1 2 3; do
+            git fetch origin main || true
+            git rebase origin/main || true
+            if git push origin HEAD:main; then
+              exit 0
+            fi
+            echo "Optimization/core5 push failed attempt ${attempt}/3"
+            sleep $((attempt * 2))
+          done
+          exit 1
+
       - name: Run nested optimized third-prize backtest with incremental push
         env:
           GIT_COMMITTER_NAME: github-actions
@@ -173,6 +202,7 @@ jobs:
             --output outputs/latest_predictions_3rd_target.csv \
             --context outputs/latest_predictions_3rd_target_context.json \
             --config outputs/third_prize_optimized_config.json \
+            --core5-performance outputs/core5_performance.csv \
             --include-outputs
 
       - name: Commit latest predictions, third-prize backtests, and optimization
