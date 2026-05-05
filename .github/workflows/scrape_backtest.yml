@@ -2,6 +2,7 @@ name: Loto6 Scrape and Backtest
 
 # Uses Rakuten static backnumber scraper to avoid Mizuho 403 in CI.
 # Default scrape mode is all history from the first available Loto6 draw month.
+# All long-running verification steps commit/push resumable outputs incrementally.
 
 on:
   push:
@@ -44,6 +45,14 @@ concurrency:
   group: loto6-scrape-backtest-main
   cancel-in-progress: false
 
+env:
+  BRANCH_NAME: main
+  TOP_N_DEFAULT: '5'
+  CANDIDATES_DEFAULT: '3000'
+  MIN_TRAIN_DRAWS_DEFAULT: '1'
+  PUSH_EVERY_DEFAULT: '100'
+  SCRAPE_MONTHS_DEFAULT: all
+
 jobs:
   scrape-and-backtest:
     runs-on: ubuntu-latest
@@ -66,10 +75,28 @@ jobs:
         run: |
           git config user.name "github-actions"
           git config user.email "github-actions@github.com"
+          git config pull.rebase true
+          git config rebase.autoStash true
+
+      - name: Define workflow inputs
+        run: |
+          set -euo pipefail
+          echo "TOP_N=${{ github.event.inputs.top_n || env.TOP_N_DEFAULT }}" >> "$GITHUB_ENV"
+          echo "CANDIDATES=${{ github.event.inputs.candidates || env.CANDIDATES_DEFAULT }}" >> "$GITHUB_ENV"
+          echo "MIN_TRAIN_DRAWS=${{ github.event.inputs.min_train_draws || env.MIN_TRAIN_DRAWS_DEFAULT }}" >> "$GITHUB_ENV"
+          echo "PUSH_EVERY=${{ github.event.inputs.push_every || env.PUSH_EVERY_DEFAULT }}" >> "$GITHUB_ENV"
+          echo "SCRAPE_MONTHS=${{ github.event.inputs.scrape_months || env.SCRAPE_MONTHS_DEFAULT }}" >> "$GITHUB_ENV"
+          echo "MAX_DRAWS=${{ github.event.inputs.max_draws || '' }}" >> "$GITHUB_ENV"
+
+      - name: Sync branch before work
+        run: |
+          set -e
+          git fetch origin "$BRANCH_NAME" || true
+          git rebase "origin/$BRANCH_NAME" || git rebase --abort || true
 
       - name: Scrape Loto6 CSV from Rakuten static pages
         run: |
-          SCRAPE_MONTHS="${{ inputs.scrape_months || 'all' }}"
+          set -euo pipefail
           if [ -z "${SCRAPE_MONTHS}" ] || [ "${SCRAPE_MONTHS}" = "all" ] || [ "${SCRAPE_MONTHS}" = "ALL" ]; then
             python scrapingloto6.py --csv data/loto6.csv --all --sleep 2
           else
@@ -85,27 +112,28 @@ jobs:
             exit 0
           fi
           git commit -m "Update scraped Loto6 CSV [skip ci]"
-          for attempt in 1 2 3; do
-            git fetch origin main || true
-            git rebase origin/main || true
-            if git push origin HEAD:main; then
+          for attempt in 1 2 3 4 5; do
+            git fetch origin "$BRANCH_NAME" || true
+            git rebase "origin/$BRANCH_NAME" || true
+            if git push origin "HEAD:$BRANCH_NAME"; then
               exit 0
             fi
-            echo "CSV push failed attempt ${attempt}/3"
-            sleep $((attempt * 2))
+            echo "CSV push failed attempt ${attempt}/5"
+            sleep $((attempt * 3))
           done
           exit 1
+
+      - name: Sync after CSV push
+        run: |
+          git fetch origin "$BRANCH_NAME" || true
+          git rebase "origin/$BRANCH_NAME" || true
 
       - name: Run resumable no-leakage backtest and push every 100 draws
         env:
           GIT_COMMITTER_NAME: github-actions
           GIT_COMMITTER_EMAIL: github-actions@github.com
         run: |
-          TOP_N="${{ inputs.top_n || '5' }}"
-          CANDIDATES="${{ inputs.candidates || '3000' }}"
-          MIN_TRAIN_DRAWS="${{ inputs.min_train_draws || '1' }}"
-          PUSH_EVERY="${{ inputs.push_every || '100' }}"
-          MAX_DRAWS="${{ inputs.max_draws }}"
+          set -euo pipefail
           CMD="python loto6.py backtest --csv data/loto6.csv --min-train-draws ${MIN_TRAIN_DRAWS} --top-n ${TOP_N} --candidates ${CANDIDATES} --resume --push-every ${PUSH_EVERY} --push-final"
           if [ -n "${MAX_DRAWS}" ] && [ "${MAX_DRAWS}" != "all" ] && [ "${MAX_DRAWS}" != "ALL" ]; then
             CMD="$CMD --max-draws '${MAX_DRAWS}'"
@@ -113,15 +141,17 @@ jobs:
           echo "$CMD"
           eval "$CMD"
 
+      - name: Sync after normal backtest pushes
+        run: |
+          git fetch origin "$BRANCH_NAME" || true
+          git rebase "origin/$BRANCH_NAME" || true
+
       - name: Run third-prize no-leakage backtest
         env:
           GIT_COMMITTER_NAME: github-actions
           GIT_COMMITTER_EMAIL: github-actions@github.com
         run: |
-          TOP_N="${{ inputs.top_n || '5' }}"
-          MIN_TRAIN_DRAWS="${{ inputs.min_train_draws || '1' }}"
-          PUSH_EVERY="${{ inputs.push_every || '100' }}"
-          MAX_DRAWS="${{ inputs.max_draws }}"
+          set -euo pipefail
           CMD="python third_prize_backtest.py --csv data/loto6.csv --min-train-draws ${MIN_TRAIN_DRAWS} --top-n ${TOP_N} --output-dir outputs --resume --push-every ${PUSH_EVERY} --push-final"
           if [ -n "${MAX_DRAWS}" ] && [ "${MAX_DRAWS}" != "all" ] && [ "${MAX_DRAWS}" != "ALL" ]; then
             CMD="$CMD --max-draws '${MAX_DRAWS}'"
@@ -129,8 +159,14 @@ jobs:
           echo "$CMD"
           eval "$CMD"
 
+      - name: Sync after third-prize backtest pushes
+        run: |
+          git fetch origin "$BRANCH_NAME" || true
+          git rebase "origin/$BRANCH_NAME" || true
+
       - name: Optimize third-prize parameters from backtest
         run: |
+          set -euo pipefail
           python third_prize_parameter_optimizer.py \
             --result-csv outputs/backtest_3rd_target_result.csv \
             --draw-csv data/loto6.csv \
@@ -158,25 +194,28 @@ jobs:
           PY
           )
           git commit -m "Update third-prize optimization and core5 performance after draw ${LATEST_DRAW} [skip ci]"
-          for attempt in 1 2 3; do
-            git fetch origin main || true
-            git rebase origin/main || true
-            if git push origin HEAD:main; then
+          for attempt in 1 2 3 4 5; do
+            git fetch origin "$BRANCH_NAME" || true
+            git rebase "origin/$BRANCH_NAME" || true
+            if git push origin "HEAD:$BRANCH_NAME"; then
               exit 0
             fi
-            echo "Optimization/core5 push failed attempt ${attempt}/3"
-            sleep $((attempt * 2))
+            echo "Optimization/core5 push failed attempt ${attempt}/5"
+            sleep $((attempt * 3))
           done
           exit 1
+
+      - name: Sync after optimization push
+        run: |
+          git fetch origin "$BRANCH_NAME" || true
+          git rebase "origin/$BRANCH_NAME" || true
 
       - name: Run nested optimized third-prize backtest with incremental push
         env:
           GIT_COMMITTER_NAME: github-actions
           GIT_COMMITTER_EMAIL: github-actions@github.com
         run: |
-          TOP_N="${{ inputs.top_n || '5' }}"
-          PUSH_EVERY="${{ inputs.push_every || '100' }}"
-          MAX_DRAWS="${{ inputs.max_draws }}"
+          set -euo pipefail
           CMD="python nested_third_prize_backtest.py --csv data/loto6.csv --min-train-draws 1 --top-n ${TOP_N} --output-dir outputs --push-every ${PUSH_EVERY} --push-final"
           if [ -n "${MAX_DRAWS}" ] && [ "${MAX_DRAWS}" != "all" ] && [ "${MAX_DRAWS}" != "ALL" ]; then
             CMD="$CMD --max-draws '${MAX_DRAWS}'"
@@ -184,10 +223,14 @@ jobs:
           echo "$CMD"
           eval "$CMD"
 
+      - name: Sync after nested backtest pushes
+        run: |
+          git fetch origin "$BRANCH_NAME" || true
+          git rebase "origin/$BRANCH_NAME" || true
+
       - name: Generate CSV-aware latest Loto6 predictions
         run: |
-          TOP_N="${{ inputs.top_n || '5' }}"
-          CANDIDATES="${{ inputs.candidates || '3000' }}"
+          set -euo pipefail
           python csv_aware_predict.py \
             --repo-root . \
             -n "${TOP_N}" \
@@ -222,9 +265,12 @@ jobs:
             outputs/nested_3rd_target_progress.json \
             outputs/backtest_3rd_target_result.csv \
             outputs/backtest_3rd_target_summary.csv \
-            outputs/backtest_3rd_target_progress.json
+            outputs/backtest_3rd_target_progress.json \
+            outputs/backtest_result.csv \
+            outputs/backtest_summary.csv \
+            outputs/backtest_progress.json
           if git diff --cached --quiet; then
-            echo "No latest prediction, optimization, or third-prize backtest changes to commit."
+            echo "No latest prediction, optimization, or backtest changes to commit."
             exit 0
           fi
           LATEST_DRAW=$(python - <<'PY'
@@ -234,14 +280,14 @@ jobs:
           PY
           )
           git commit -m "Improve optimized third-prize Loto6 predictions after draw ${LATEST_DRAW} [skip ci]"
-          for attempt in 1 2 3; do
-            git fetch origin main || true
-            git rebase origin/main || true
-            if git push origin HEAD:main; then
+          for attempt in 1 2 3 4 5; do
+            git fetch origin "$BRANCH_NAME" || true
+            git rebase "origin/$BRANCH_NAME" || true
+            if git push origin "HEAD:$BRANCH_NAME"; then
               exit 0
             fi
-            echo "Prediction push failed attempt ${attempt}/3"
-            sleep $((attempt * 2))
+            echo "Prediction push failed attempt ${attempt}/5"
+            sleep $((attempt * 3))
           done
           exit 1
 
