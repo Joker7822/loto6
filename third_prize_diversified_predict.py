@@ -12,6 +12,9 @@ third_prize_diversified_predict.py
 最適化:
   outputs/third_prize_optimized_config.json が存在する場合、
   recent_window / core_pool_size / cover_pool_size / allocation などを自動反映します。
+
+追加改善:
+  outputs/core5_performance.csv が存在する場合、過去検証で強かったcore5を加点します。
 """
 from __future__ import annotations
 
@@ -33,6 +36,7 @@ from csv_aware_predict import (
 from loto6 import NUMBER_COLUMNS, format_numbers, normalize_draw_dataframe, normalize_numbers
 
 DEFAULT_CONFIG_PATH = "outputs/third_prize_optimized_config.json"
+DEFAULT_CORE5_PERFORMANCE_PATH = "outputs/core5_performance.csv"
 
 
 def _load_optimized_config(path: str | None) -> dict:
@@ -48,14 +52,68 @@ def _load_optimized_config(path: str | None) -> dict:
         return {}
 
 
-def _core_score(core, number_scores, pair_scores) -> float:
+def _core_key(core) -> str:
+    return " ".join(f"{int(x):02d}" for x in sorted(map(int, core)))
+
+
+def _load_core5_performance(path: str | None) -> tuple[dict[str, float], dict]:
+    """Return normalized core5 bonus and stats.
+
+    score_per_draw / core5_4plus / 3等以上の実績を軽く反映する。
+    未来リークを避ける検証ではこの関数を呼ばない。
+    """
+    if not path:
+        return {}, {"used": False, "reason": "disabled"}
+    p = Path(path)
+    if not p.exists() or p.stat().st_size == 0:
+        return {}, {"used": False, "reason": "missing", "path": str(p)}
+    try:
+        df = pd.read_csv(p)
+    except Exception as exc:
+        return {}, {"used": False, "reason": f"read_failed:{exc}", "path": str(p)}
+
+    if df.empty or "core5" not in df.columns:
+        return {}, {"used": False, "reason": "empty_or_missing_core5", "path": str(p)}
+
+    work = df.copy()
+    for col in ["score_per_draw", "third_or_better_count", "core5_4plus_count", "max_core5_matches", "max_main_matches"]:
+        if col not in work.columns:
+            work[col] = 0
+        work[col] = pd.to_numeric(work[col], errors="coerce").fillna(0.0)
+
+    raw = {}
+    for _, row in work.iterrows():
+        key = _core_key([int(x) for x in str(row["core5"]).split() if str(x).isdigit()])
+        if not key:
+            continue
+        value = (
+            float(row["score_per_draw"])
+            + 0.35 * float(row["third_or_better_count"])
+            + 0.12 * float(row["core5_4plus_count"])
+            + 0.05 * float(row["max_core5_matches"])
+            + 0.03 * float(row["max_main_matches"])
+        )
+        raw[key] = max(raw.get(key, 0.0), value)
+
+    if not raw:
+        return {}, {"used": False, "reason": "no_valid_rows", "path": str(p)}
+    max_v = max(raw.values())
+    if max_v <= 0:
+        return {}, {"used": False, "reason": "non_positive_scores", "path": str(p)}
+    normalized = {k: float(v / max_v) for k, v in raw.items()}
+    top = sorted(normalized.items(), key=lambda kv: kv[1], reverse=True)[:10]
+    return normalized, {"used": True, "path": str(p), "core5_count": len(normalized), "top_core5": top}
+
+
+def _core_score(core, number_scores, pair_scores, core5_bonus: dict[str, float] | None = None) -> float:
     core = tuple(sorted(int(n) for n in core))
     base = float(np.mean([number_scores.get(n, 0.0) for n in core]))
     pair = float(np.mean([pair_scores.get(tuple(sorted(p)), 0.0) for p in combinations(core, 2)]))
     odd_balance = 1.0 - abs(sum(n % 2 for n in core) - 2.5) / 2.5
     zone_balance = len({(n - 1) // 10 for n in core}) / 5.0
     spread_balance = max(0.0, 1.0 - abs((max(core) - min(core)) - 28) / 30.0)
-    return 0.58 * base + 0.24 * pair + 0.07 * odd_balance + 0.06 * zone_balance + 0.05 * spread_balance
+    bonus = (core5_bonus or {}).get(_core_key(core), 0.0)
+    return 0.53 * base + 0.22 * pair + 0.07 * odd_balance + 0.06 * zone_balance + 0.04 * spread_balance + 0.08 * bonus
 
 
 def _overlap(a, b) -> int:
@@ -97,6 +155,7 @@ def generate_diversified_third_predictions(
     core_pool_size: int = 22,
     cover_pool_size: int = 34,
     config_path: str | None = DEFAULT_CONFIG_PATH,
+    core5_performance_path: str | None = DEFAULT_CORE5_PERFORMANCE_PATH,
 ) -> tuple[pd.DataFrame, dict]:
     optimized_config = _load_optimized_config(config_path)
     if optimized_config:
@@ -109,6 +168,8 @@ def generate_diversified_third_predictions(
     core_overlap_limit = int(optimized_config.get("core_overlap_limit", 3)) if optimized_config else 3
     history_penalty = float(optimized_config.get("history_penalty", 0.12)) if optimized_config else 0.12
     cover_reuse_penalty = float(optimized_config.get("cover_reuse_penalty", 0.0)) if optimized_config else 0.0
+
+    core5_bonus, core5_performance_stats = _load_core5_performance(core5_performance_path)
 
     features = load_csv_features(repo_root, include_outputs=include_outputs)
     draws = normalize_draw_dataframe(features.actual_draws)
@@ -126,7 +187,7 @@ def generate_diversified_third_predictions(
     core_ranked: list[tuple[float, tuple[int, ...]]] = []
     for core in combinations(core_pool, 5):
         core = tuple(sorted(core))
-        score = _core_score(core, number_scores, pair_scores)
+        score = _core_score(core, number_scores, pair_scores, core5_bonus=core5_bonus)
         historical_core_hits = sum(1 for h in history if len(set(core) & set(h)) >= 5)
         score -= min(historical_core_hits, 5) * 0.01
         core_ranked.append((float(score), core))
@@ -174,7 +235,7 @@ def generate_diversified_third_predictions(
             rows.append(
                 {
                     "generated_at_utc": generated_at,
-                    "strategy": "csv_aware_third_prize_core_cover_diversified_optimized" if optimized_config else "csv_aware_third_prize_core_cover_diversified",
+                    "strategy": "csv_aware_third_prize_core_cover_diversified_optimized_core5perf" if core5_bonus else "csv_aware_third_prize_core_cover_diversified_optimized" if optimized_config else "csv_aware_third_prize_core_cover_diversified",
                     "target_grade": "3等",
                     "core_group": chr(ord("A") + core_index),
                     "source_csv_files": len(features.csv_paths),
@@ -184,10 +245,11 @@ def generate_diversified_third_predictions(
                     "target": f"after_draw_{int(latest['draw_no'])}",
                     "rank": len(rows) + 1,
                     "numbers": format_numbers(ticket),
-                    "core5": " ".join(f"{x:02d}" for x in core),
+                    "core5": _core_key(core),
                     "cover_number": f"{cover:02d}",
                     "score": round(score, 6),
                     "core_score": round(core_score_value, 6),
+                    "core5_performance_bonus": round(core5_bonus.get(_core_key(core), 0.0), 6),
                     **{f"n{i}": x for i, x in enumerate(ticket, 1)},
                 }
             )
@@ -199,9 +261,10 @@ def generate_diversified_third_predictions(
     out = pd.DataFrame(rows)
     context = {
         "generated_at_utc": generated_at,
-        "strategy": "csv_aware_third_prize_core_cover_diversified_optimized" if optimized_config else "csv_aware_third_prize_core_cover_diversified",
+        "strategy": "csv_aware_third_prize_core_cover_diversified_optimized_core5perf" if core5_bonus else "csv_aware_third_prize_core_cover_diversified_optimized" if optimized_config else "csv_aware_third_prize_core_cover_diversified",
         "optimized_config_path": config_path if optimized_config else None,
         "optimized_config": optimized_config,
+        "core5_performance": core5_performance_stats,
         "effective_parameters": {
             "recent_window": recent_window,
             "core_pool_size": core_pool_size,
@@ -212,10 +275,16 @@ def generate_diversified_third_predictions(
             "history_penalty": history_penalty,
             "cover_reuse_penalty": cover_reuse_penalty,
             "seed": seed,
+            "core5_performance_path": core5_performance_path,
         },
         "allocation": allocation,
         "selected_cores": [
-            {"core_group": chr(ord("A") + i), "core5": " ".join(f"{x:02d}" for x in core), "core_score": round(score, 6)}
+            {
+                "core_group": chr(ord("A") + i),
+                "core5": _core_key(core),
+                "core_score": round(score, 6),
+                "core5_performance_bonus": round(core5_bonus.get(_core_key(core), 0.0), 6),
+            }
             for i, (score, core) in enumerate(selected_cores)
         ],
         "source_csv_files": features.csv_paths,
@@ -224,7 +293,7 @@ def generate_diversified_third_predictions(
         "trained_through_draw_no": int(latest["draw_no"]),
         "trained_through_date": str(latest["date"].date() if hasattr(latest["date"], "date") else latest["date"]),
         "duplicate_summary": features.duplicate_summary,
-        "note": "3等狙いの5数字コアをA/B/Cへ分散し、backtest結果から最適化されたパラメータを反映。",
+        "note": "3等狙いの5数字コアをA/B/Cへ分散し、最適化設定とcore5過去成績を反映。",
     }
     return out, context
 
@@ -235,6 +304,7 @@ def main() -> int:
     parser.add_argument("--output", default="outputs/latest_predictions_3rd_target.csv")
     parser.add_argument("--context", default="outputs/latest_predictions_3rd_target_context.json")
     parser.add_argument("--config", default=DEFAULT_CONFIG_PATH)
+    parser.add_argument("--core5-performance", default=DEFAULT_CORE5_PERFORMANCE_PATH)
     parser.add_argument("-n", type=int, default=5)
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--include-outputs", action=argparse.BooleanOptionalAction, default=True)
@@ -246,6 +316,7 @@ def main() -> int:
         seed=args.seed,
         include_outputs=args.include_outputs,
         config_path=args.config,
+        core5_performance_path=args.core5_performance,
     )
     out = Path(args.output)
     out.parent.mkdir(parents=True, exist_ok=True)
