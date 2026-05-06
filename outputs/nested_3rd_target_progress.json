@@ -2,19 +2,19 @@
   "mode": "nested_third_prize_walk_forward",
   "total_source_draws": 2099,
   "min_train_draws": 1,
-  "completed_draws": 700,
-  "latest_completed_draw_no": 701,
-  "tickets": 3500,
+  "completed_draws": 800,
+  "latest_completed_draw_no": 801,
+  "tickets": 4000,
   "top_n": 5,
   "max_main_matches": 4,
   "max_core5_matches": 4,
   "core5_5hit_count": 0,
-  "core5_4hit_count": 6,
-  "near_third_count": 4,
+  "core5_4hit_count": 7,
+  "near_third_count": 5,
   "third_or_better_count": 0,
   "grade_counts": {
-    "はずれ": 3428,
-    "5等": 64,
-    "4等": 8
+    "はずれ": 3914,
+    "5等": 77,
+    "4等": 9
   }
 }
